@@ -1,0 +1,75 @@
+# Legajo
+
+La historia clínica del auto: los talleres cargan cada trabajo, el registro queda firmado y no se puede modificar, y quien compra un usado ve el historial real por link o QR.
+
+Este repo es el MVP: una web app pensada para usar desde el celular del taller.
+
+## Qué hace
+
+- **Talleres:** registro con CUIT, login, búsqueda por patente o escaneo del QR del parabrisas.
+- **Legajo del auto:** alta (patente, VIN, marca, modelo, año) y línea de tiempo de todos los registros.
+- **Carga de registros:** tipo de trabajo, km, fecha, trabajos hechos y notas internas. Queda firmado por el taller y el usuario.
+- **Correcciones:** un error se corrige con un registro nuevo que apunta al original; el original queda visible como corregido.
+- **Informe público** (`/i/<slug>`): puntaje 0–100, chequeos (integridad, km, services, origen 0 km) y la línea de tiempo sin notas internas.
+- **Sticker QR** imprimible por auto.
+
+## Cómo garantiza que el historial no se adultere
+
+1. Un trigger de Postgres rechaza cualquier `UPDATE`, `DELETE` o `TRUNCATE` sobre `service_records` (`migrations/001_init.sql`).
+2. Cada registro guarda el SHA-256 de su contenido y del registro anterior del mismo auto (`src/lib/ledger.ts`). Si alguien altera una fila directo en la base, el informe muestra "Historial alterado".
+3. Taller y usuario se toman de la sesión, nunca del formulario.
+4. Si el km es menor al último registrado, se pide confirmación y el informe marca la inconsistencia.
+
+## Stack
+
+Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postgres con la librería `postgres` · sesiones con `jose` + `bcryptjs` · QR con `qrcode`. El escaneo de QR usa la API `BarcodeDetector` del navegador (Chrome en Android); donde no exista, se tipea la patente.
+
+## Poner online en Vercel
+
+1. Importá este repo en Vercel (**Add New → Project**).
+2. En **Storage**, creá una base **Neon (Postgres)** y conectala al proyecto: Vercel agrega `DATABASE_URL`.
+3. En **Settings → Environment Variables** agregá:
+   - `AUTH_SECRET`: un texto largo y aleatorio (`openssl rand -base64 32`).
+   - `NEXT_PUBLIC_APP_URL`: la URL del proyecto, por ejemplo `https://legajo.vercel.app` (es la que va en los QR).
+   - Opcional para probar: `AUTO_VERIFY_WORKSHOPS=true`, así los talleres nuevos quedan verificados al registrarse.
+4. Deploy. El build corre las migraciones (`scripts/migrate.mjs`) antes de compilar.
+5. Entrá a `/registro`, creá el primer taller y, si no usaste `AUTO_VERIFY_WORKSHOPS`, verificalo en la base:
+
+   ```sql
+   UPDATE workshops SET verified = true WHERE cuit = '20123456789';
+   ```
+
+## Desarrollo local
+
+```bash
+cp .env.example .env.local   # completá DATABASE_URL y AUTH_SECRET
+npm install
+npm run migrate
+npm run dev
+```
+
+Tests de la lógica del legajo (cadena de hashes, puntaje, patentes):
+
+```bash
+npm test
+```
+
+## Estructura
+
+```
+migrations/            SQL versionado (esquema + trigger de inmutabilidad)
+scripts/migrate.mjs    aplica las migraciones pendientes
+src/lib/ledger.ts      hash, verificación de la cadena y puntaje del informe
+src/lib/data.ts        consultas a la base
+src/app/actions/       server actions (login, registro, autos, registros)
+src/app/taller/        app del taller (requiere login)
+src/app/i/[slug]/      informe público
+```
+
+## Próximos pasos
+
+- Fotos y comprobantes (Vercel Blob)
+- Lectura de patente por cámara (OCR)
+- Aviso al dueño por WhatsApp con el link del legajo
+- Panel de administración para verificar talleres
+- Cobro del informe completo (Mercado Pago)

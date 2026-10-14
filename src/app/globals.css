@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #15171a;
+  --color-paper: #f3f2ee;
+  --color-line: #dad8d1;
+  --color-muted: #5b5f66;
+  --color-accent: #c2410c;
+  --color-accent-dark: #9a3412;
+  --color-ok: #047857;
+  --color-warn: #b45309;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.field {
+  @apply block w-full rounded-xl border border-line bg-white px-3.5 py-3 text-base outline-none focus:border-ink;
+}
+
+.label {
+  @apply mb-1.5 block text-sm font-semibold;
+}
+
+.btn-primary {
+  @apply flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 font-semibold text-white hover:bg-accent-dark disabled:opacity-60;
+}
+
+.btn-secondary {
+  @apply flex h-13 w-full items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 font-semibold text-ink hover:border-ink;
+}
+
+.card {
+  @apply rounded-2xl border border-line bg-white;
+}

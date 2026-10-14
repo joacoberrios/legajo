@@ -1,0 +1,116 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Plate } from "@/components/Plate";
+import { Timeline, formatKm } from "@/components/Timeline";
+import { VehicleForm } from "@/components/VehicleForm";
+import { requireUser } from "@/lib/auth";
+import { findVehicleByPlate, listRecords } from "@/lib/data";
+import { analyze } from "@/lib/ledger";
+import { isValidPlate, normalizePlate } from "@/lib/plate";
+
+export default async function VehiclePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ plate: string }>;
+  searchParams: Promise<{ cargado?: string }>;
+}) {
+  const user = await requireUser();
+  const plate = normalizePlate((await params).plate);
+  if (!isValidPlate(plate)) notFound();
+  const { cargado } = await searchParams;
+
+  const vehicle = await findVehicleByPlate(plate);
+
+  if (!vehicle) {
+    return (
+      <main className="space-y-6 px-5">
+        <BackLink />
+        <div className="space-y-2">
+          <Plate plate={plate} size="lg" />
+          <h1 className="text-xl font-bold">Este auto todavía no tiene legajo</h1>
+          <p className="text-sm text-muted">Cargá sus datos una vez y queda disponible para todos los talleres.</p>
+        </div>
+        <VehicleForm plate={plate} />
+      </main>
+    );
+  }
+
+  const records = await listRecords(vehicle.id);
+  const a = analyze(records);
+
+  return (
+    <main className="space-y-5 px-5">
+      <BackLink />
+
+      {cargado && (
+        <p role="status" className="rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900">
+          Registro firmado y agregado al legajo.
+        </p>
+      )}
+
+      <section className="space-y-3.5 rounded-3xl bg-ink p-5 text-paper">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <Plate plate={vehicle.plate} />
+            <h1 className="text-xl font-bold tracking-tight">{vehicle.make} {vehicle.model}</h1>
+            <p className="font-mono text-xs text-[#B9B7B0]">
+              {vehicle.vin ? `VIN ${vehicle.vin.slice(0, 8)}•••••${vehicle.vin.slice(-4)}` : "VIN sin cargar"}
+              {vehicle.year ? ` · ${vehicle.year}` : ""}
+            </p>
+          </div>
+          <span className={`rounded-full px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap ${a.chainOk ? "bg-[#14532D] text-[#DCFCE7]" : "bg-red-900 text-red-100"}`}>
+            {a.chainOk ? "Verificado" : "Alterado"}
+          </span>
+        </div>
+        <dl className="grid grid-cols-3 gap-2 border-t border-[#33363B] pt-3">
+          <Stat label="km actuales" value={a.currentKm !== null ? a.currentKm.toLocaleString("es-AR") : "—"} />
+          <Stat label="registros" value={String(records.length)} />
+          <Stat label="talleres" value={String(a.workshops)} />
+        </dl>
+      </section>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <Link href={`/i/${vehicle.publicSlug}`} className="btn-secondary text-sm">Informe público</Link>
+        <Link href={`/taller/auto/${vehicle.plate}/qr`} className="btn-secondary text-sm">QR para el auto</Link>
+      </div>
+
+      {a.kmIssues > 0 && (
+        <p className="rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+          Hay {a.kmIssues} registro{a.kmIssues > 1 ? "s" : ""} con km menor a uno anterior. Último km válido: {formatKm(a.currentKm ?? 0)}.
+        </p>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="font-bold">Historial</h2>
+        <Timeline records={records} mode="taller" plate={vehicle.plate} workshopId={user.workshopId} />
+      </section>
+
+      <div className="sticky bottom-0 -mx-5 border-t border-line bg-paper px-5 pt-3 pb-6">
+        {user.workshopVerified ? (
+          <Link href={`/taller/auto/${vehicle.plate}/nuevo`} className="btn-primary">+ Cargar registro</Link>
+        ) : (
+          <p className="text-center text-sm text-muted">La carga se habilita cuando verifiquemos tu taller.</p>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col-reverse">
+      <dt className="text-xs text-[#B9B7B0]">{label}</dt>
+      <dd className="font-mono text-base font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link href="/taller" className="inline-flex h-11 items-center gap-1 text-sm font-semibold text-muted">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+      Volver
+    </Link>
+  );
+}

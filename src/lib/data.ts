@@ -1,0 +1,130 @@
+import "server-only";
+import { randomBytes } from "node:crypto";
+import { db } from "./db";
+import { computeHash, type LedgerRecord, type RecordType } from "./ledger";
+
+export type Vehicle = {
+  id: string;
+  plate: string;
+  vin: string | null;
+  make: string;
+  model: string;
+  year: number | null;
+  publicSlug: string;
+  createdAt: Date;
+};
+
+export type RecordRow = LedgerRecord & { workshopName: string; userName: string };
+
+export async function findVehicleByPlate(plate: string): Promise<Vehicle | null> {
+  const rows = await db()<Vehicle[]>`SELECT * FROM vehicles WHERE plate = ${plate}`;
+  return rows[0] ?? null;
+}
+
+export async function findVehicleBySlug(slug: string): Promise<Vehicle | null> {
+  const rows = await db()<Vehicle[]>`SELECT * FROM vehicles WHERE public_slug = ${slug}`;
+  return rows[0] ?? null;
+}
+
+/** Registros del auto en orden de carga (el orden de la cadena de hashes). */
+export async function listRecords(vehicleId: string): Promise<RecordRow[]> {
+  return db()<RecordRow[]>`
+    SELECT r.id, r.vehicle_id, r.workshop_id, r.user_id, r.type, r.odometer_km,
+           r.performed_on::text AS performed_on, r.items, r.notes, r.corrects_id,
+           r.prev_hash, r.hash, r.created_at,
+           w.name AS workshop_name, u.name AS user_name
+    FROM service_records r
+    JOIN workshops w ON w.id = r.workshop_id
+    JOIN users u ON u.id = r.user_id
+    WHERE r.vehicle_id = ${vehicleId}
+    ORDER BY r.created_at ASC, r.id ASC
+  `;
+}
+
+export type RecentVehicle = Vehicle & { lastActivity: Date; lastType: RecordType | null };
+
+/** Autos con los que trabajó el taller, el más reciente primero. */
+export async function recentVehicles(workshopId: string, limit = 8): Promise<RecentVehicle[]> {
+  return db()<RecentVehicle[]>`
+    SELECT v.*, act.last_activity, act.last_type
+    FROM vehicles v
+    JOIN LATERAL (
+      SELECT r.created_at AS last_activity, r.type AS last_type
+      FROM service_records r
+      WHERE r.vehicle_id = v.id AND r.workshop_id = ${workshopId}
+      ORDER BY r.created_at DESC
+      LIMIT 1
+    ) act ON true
+    UNION ALL
+    SELECT v.*, v.created_at AS last_activity, NULL::record_type AS last_type
+    FROM vehicles v
+    WHERE v.created_by_workshop = ${workshopId}
+      AND NOT EXISTS (SELECT 1 FROM service_records r WHERE r.vehicle_id = v.id AND r.workshop_id = ${workshopId})
+    ORDER BY last_activity DESC
+    LIMIT ${limit}
+  `;
+}
+
+export async function createVehicle(input: {
+  plate: string;
+  vin: string | null;
+  make: string;
+  model: string;
+  year: number | null;
+  workshopId: string;
+}): Promise<Vehicle> {
+  const slug = randomBytes(9).toString("base64url"); // 12 caracteres, no adivinable
+  const [v] = await db()<Vehicle[]>`
+    INSERT INTO vehicles (plate, vin, make, model, year, public_slug, created_by_workshop)
+    VALUES (${input.plate}, ${input.vin}, ${input.make}, ${input.model}, ${input.year}, ${slug}, ${input.workshopId})
+    RETURNING *
+  `;
+  return v;
+}
+
+export async function lastOdometer(vehicleId: string): Promise<number | null> {
+  const rows = await db()<{ km: number | null }[]>`
+    SELECT max(odometer_km) AS km FROM service_records WHERE vehicle_id = ${vehicleId}
+  `;
+  return rows[0]?.km ?? null;
+}
+
+/**
+ * Agrega un registro al final de la cadena del auto.
+ * Bloquea la fila del auto para que dos cargas simultáneas no tomen el mismo hash anterior.
+ */
+export async function appendRecord(input: {
+  vehicleId: string;
+  workshopId: string;
+  userId: string;
+  type: RecordType;
+  odometerKm: number;
+  performedOn: string;
+  items: string[];
+  notes: string | null;
+  correctsId: string | null;
+}): Promise<string> {
+  return db().begin(async (tx) => {
+    await tx`SELECT id FROM vehicles WHERE id = ${input.vehicleId} FOR UPDATE`;
+    const last = await tx<{ hash: string }[]>`
+      SELECT hash FROM service_records
+      WHERE vehicle_id = ${input.vehicleId}
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `;
+    const prevHash = last[0]?.hash ?? null;
+    // Milisegundos exactos: es lo que entra en el hash y lo que se vuelve a leer al verificar.
+    const createdAt = new Date();
+    const hash = computeHash({ ...input, prevHash, createdAt });
+
+    const [row] = await tx<{ id: string }[]>`
+      INSERT INTO service_records
+        (vehicle_id, workshop_id, user_id, type, odometer_km, performed_on, items, notes, corrects_id, prev_hash, hash, created_at)
+      VALUES
+        (${input.vehicleId}, ${input.workshopId}, ${input.userId}, ${input.type}, ${input.odometerKm},
+         ${input.performedOn}, ${tx.array(input.items)}::text[], ${input.notes}, ${input.correctsId}, ${prevHash}, ${hash}, ${createdAt})
+      RETURNING id
+    `;
+    return row.id;
+  });
+}
