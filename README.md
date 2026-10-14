@@ -22,7 +22,7 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 
 ## Stack
 
-Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postgres con la librería `postgres` · sesiones con `jose` + `bcryptjs` · QR con `qrcode`. El escaneo de QR usa la API `BarcodeDetector` del navegador (Chrome en Android); donde no exista, se tipea la patente.
+Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postgres con la librería `postgres` · sesiones con `jose` + `bcryptjs` · QR con `qrcode`. El escaneo de QR usa el lector nativo del navegador (`BarcodeDetector`) y, donde no existe (Safari, Firefox, Chrome de escritorio), `jsqr`.
 
 ## Poner online en Vercel
 

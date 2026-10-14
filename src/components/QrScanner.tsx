@@ -5,9 +5,36 @@ import { useRouter } from "next/navigation";
 
 type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
 type DetectorCtor = new (opts: { formats: string[] }) => Detector;
+type DetectFn = (video: HTMLVideoElement) => Promise<string | null>;
 
 /**
- * Lee el QR del parabrisas con la API BarcodeDetector del navegador (Chrome en Android, entre otros).
+ * Lector de QR: usa el nativo del navegador (BarcodeDetector) si existe;
+ * si no (Safari, Firefox, Chrome de escritorio), decodifica los cuadros del video con jsQR.
+ */
+async function createDetector(): Promise<DetectFn> {
+  const Ctor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
+  if (Ctor) {
+    const native = new Ctor({ formats: ["qr_code"] });
+    return async (video) => (await native.detect(video))[0]?.rawValue ?? null;
+  }
+  const jsQR = (await import("jsqr")).default;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  return async (video) => {
+    if (!ctx || !video.videoWidth) return null;
+    const scale = Math.min(1, 640 / video.videoWidth); // achicar acelera la lectura
+    const w = Math.round(video.videoWidth * scale);
+    const h = Math.round(video.videoHeight * scale);
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    return jsQR(data, w, h, { inversionAttempts: "dontInvert" })?.data ?? null;
+  };
+}
+
+/**
+ * Lee el QR del parabrisas con la cámara (nativo o jsQR según el navegador).
  * El QR contiene el link del informe (/i/<slug>); desde la app del taller abre el legajo completo.
  */
 export function QrScanner() {
@@ -18,26 +45,27 @@ export function QrScanner() {
 
   useEffect(() => {
     if (!open) return;
-    const Ctor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
-    if (!Ctor) {
-      setMessage("Este navegador no lee QR. Abrí el QR con la cámara del celular o tipeá la patente.");
-      setOpen(false);
-      return;
-    }
     let stream: MediaStream | null = null;
     let stopped = false;
-    const detector = new Ctor({ formats: ["qr_code"] });
 
     (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setMessage("Este navegador no permite usar la cámara. Tipeá la patente.");
+          setOpen(false);
+          return;
+        }
+        const detect = await createDetector();
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || stopped) {
+          stream.getTracks().forEach((t) => t.stop()); // se canceló mientras pedía permiso
+          return;
+        }
         video.srcObject = stream;
         await video.play();
         while (!stopped) {
-          const codes = await detector.detect(video).catch(() => []);
-          const value = codes[0]?.rawValue;
+          const value = await detect(video).catch(() => null);
           if (value) {
             const slug = value.match(/\/i\/([A-Za-z0-9_-]+)/)?.[1];
             stopped = true;
