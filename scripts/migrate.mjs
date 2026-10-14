@@ -4,7 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
-const url = process.env.DATABASE_URL;
+// La integración de Neon en Vercel puede crear DATABASE_URL o POSTGRES_URL.
+const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 if (!url) {
   if (process.env.VERCEL) {
     console.error("Falta DATABASE_URL: agregá una base Postgres al proyecto en Vercel.");
