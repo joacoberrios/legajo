@@ -22,10 +22,10 @@ function Attachments({ items, mode }: { items: Attachment[]; mode: "taller" | "p
         }
         return (
           <li key={a.id}>
-            <a href={a.url} target="_blank" rel="noopener noreferrer" title={label} className="block">
+            <a href={`/api/adjuntos/${a.id}`} target="_blank" rel="noopener noreferrer" title={label} className="block">
               {isPhoto(a) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.url} alt={label} loading="lazy" className="h-16 w-16 rounded-lg border border-line object-cover" />
+                <img src={`/api/adjuntos/${a.id}`} alt={label} loading="lazy" className="h-16 w-16 rounded-lg border border-line object-cover" />
               ) : (
                 <span className="flex h-16 w-16 flex-col items-center justify-center rounded-lg border border-line bg-paper text-center">
                   <span className="font-mono text-xs font-semibold">{a.contentType === "application/pdf" ? "PDF" : "FOTO"}</span>

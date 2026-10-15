@@ -10,11 +10,13 @@ export function RecordForm({
   lastKm,
   correcting,
   workshopId,
+  blobAccess,
 }: {
   plate: string;
   lastKm: number | null;
   correcting: { id: string; label: string; km: number; performedOn: string; items: string[] } | null;
   workshopId: string;
+  blobAccess: "public" | "private";
 }) {
   const [state, action, pending] = useActionState(createRecordAction, undefined);
   // Los adjuntos viven fuera del <form> con key: si hay un error de validación no se pierden.
@@ -107,7 +109,7 @@ export function RecordForm({
         <textarea id="notes" name="notes" rows={3} defaultValue={v?.notes} required={!!correcting} className="field" />
       </div>
 
-      <AttachmentPicker files={files} setFiles={setFiles} workshopId={workshopId} plate={plate} />
+      <AttachmentPicker files={files} setFiles={setFiles} workshopId={workshopId} plate={plate} access={blobAccess} />
       <input type="hidden" name="attachments" value={attachmentsJson} />
 
       {state?.error && (

@@ -4,6 +4,7 @@ import { Plate } from "@/components/Plate";
 import { RecordForm } from "@/components/RecordForm";
 import { formatDay } from "@/components/Timeline";
 import { requireUser } from "@/lib/auth";
+import { BLOB_ACCESS } from "@/lib/blob";
 import { findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
 import { RECORD_LABELS } from "@/lib/ledger";
 import { normalizePlate } from "@/lib/plate";
@@ -53,7 +54,7 @@ export default async function NewRecordPage({
           </p>
         </div>
       </div>
-      <RecordForm plate={plate} lastKm={await lastOdometer(vehicle.id)} correcting={correcting} workshopId={user.workshopId} />
+      <RecordForm plate={plate} lastKm={await lastOdometer(vehicle.id)} correcting={correcting} workshopId={user.workshopId} blobAccess={BLOB_ACCESS} />
     </main>
   );
 }

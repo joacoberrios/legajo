@@ -20,8 +20,8 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 2. Cada registro guarda el SHA-256 de su contenido y del registro anterior del mismo auto (`src/lib/ledger.ts`). Si alguien altera una fila directo en la base, el informe muestra "Historial alterado".
 3. Taller y usuario se toman de la sesión, nunca del formulario.
 4. Si el km es menor al último registrado, se pide confirmación y el informe marca la inconsistencia.
-5. Los adjuntos se suben directo del celular a Vercel Blob, pero al firmar el servidor descarga cada archivo y calcula su SHA-256. Esa huella entra en el hash del registro (formato `legajo:v2`) y se guarda en `record_attachments`, que también es inmutable. Si alguien reemplaza un archivo o su registro en la base, la cadena se rompe. Los registros sin adjuntos siguen usando el formato `legajo:v1`.
-6. En el informe público se ven las fotos del tablero y del trabajo; los comprobantes solo se indican, porque pueden tener datos del dueño.
+5. Los adjuntos se suben directo del celular a Vercel Blob con una URL firmada que vence a los 10 minutos y solo permite escribir en la carpeta del taller, pero al firmar el servidor descarga cada archivo y calcula su SHA-256. Esa huella entra en el hash del registro (formato `legajo:v2`) y se guarda en `record_attachments`, que también es inmutable. Si alguien reemplaza un archivo o su registro en la base, la cadena se rompe. Los registros sin adjuntos siguen usando el formato `legajo:v1`.
+6. Los archivos se sirven a través de la app (`/api/adjuntos/<id>`). En el informe público se ven las fotos del tablero y del trabajo; los comprobantes solo se indican y únicamente los abre un taller logueado, porque pueden tener datos del dueño.
 
 ## Stack
 
@@ -35,7 +35,7 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postg
    - `AUTH_SECRET`: un texto largo y aleatorio (`openssl rand -base64 32`).
    - `NEXT_PUBLIC_APP_URL`: la URL del proyecto, por ejemplo `https://legajo.vercel.app` (es la que va en los QR).
    - Opcional para probar: `AUTO_VERIFY_WORKSHOPS=true`, así los talleres nuevos quedan verificados al registrarse.
-4. En **Storage**, creá un **Blob** store y conectalo al proyecto: Vercel agrega `BLOB_READ_WRITE_TOKEN` (para fotos y comprobantes).
+4. En **Storage**, creá un **Blob** store y conectalo al proyecto (para fotos y comprobantes). Vercel agrega `BLOB_STORE_ID` y `BLOB_WEBHOOK_PUBLIC_KEY`; la app usa las credenciales OIDC del proyecto, sin token fijo. Por defecto asume un store **privado**; si lo creaste público, agregá `BLOB_ACCESS=public`.
 5. Deploy. El build corre las migraciones (`scripts/migrate.mjs`) antes de compilar.
 6. Entrá a `/registro`, creá el primer taller y, si no usaste `AUTO_VERIFY_WORKSHOPS`, verificalo en la base:
 

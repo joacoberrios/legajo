@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadPresigned } from "@vercel/blob/client";
 import { ATTACHMENT_LABELS, ATTACHMENT_LIMITS, type AttachmentKind } from "@/lib/records-meta";
 
 export type PickedFile = {
@@ -45,11 +45,13 @@ export function AttachmentPicker({
   setFiles,
   workshopId,
   plate,
+  access,
 }: {
   files: PickedFile[];
   setFiles: (update: (prev: PickedFile[]) => PickedFile[]) => void;
   workshopId: string;
   plate: string;
+  access: "public" | "private";
 }) {
   const inputs = useRef<Partial<Record<AttachmentKind, HTMLInputElement | null>>>({});
 
@@ -71,11 +73,9 @@ export function AttachmentPicker({
         const file = await prepare(original);
         if (file.size > ATTACHMENT_LIMITS.maxBytes) throw new Error("El archivo pesa más de 10 MB.");
         const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const blob = await upload(`adjuntos/${workshopId}/${plate}/${kind}.${ext}`, file, {
-          access: "public",
+        const blob = await uploadPresigned(`adjuntos/${workshopId}/${plate}/${kind}.${ext}`, file, {
+          access,
           handleUploadUrl: "/api/adjuntos",
-          contentType: file.type || undefined,
-          onUploadProgress: ({ percentage }) => patch(key, { progress: percentage }),
         });
         patch(key, { status: "done", progress: 100, url: blob.url });
       } catch (e) {
@@ -143,7 +143,7 @@ export function AttachmentPicker({
                 )}
                 {f.status === "uploading" && (
                   <div className="absolute inset-x-0 bottom-0 h-1.5 bg-black/20">
-                    <div className="h-full bg-accent" style={{ width: `${Math.max(6, f.progress)}%` }} />
+                    <div className="h-full w-full animate-pulse bg-accent" />
                   </div>
                 )}
                 {f.status === "error" && (
