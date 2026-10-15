@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { revokeInvite } from "@/app/actions/team";
+import { ResetLinkButton } from "@/components/PasswordForms";
 import { InviteCreator } from "@/components/TeamInvite";
 import { formatDay } from "@/components/Timeline";
 import { requireUser } from "@/lib/auth";
@@ -34,9 +35,12 @@ export default async function TeamPage() {
               </p>
               <p className="truncate text-xs text-muted">{m.email}</p>
             </div>
-            <span className="shrink-0 rounded-full bg-paper px-2.5 py-1 text-[11px] font-semibold text-muted">
-              {m.role === "owner" ? "Dueño" : "Mecánico"}
-            </span>
+            <div className="flex shrink-0 flex-col items-end">
+              <span className="rounded-full bg-paper px-2.5 py-1 text-[11px] font-semibold text-muted">
+                {m.role === "owner" ? "Dueño" : "Mecánico"}
+              </span>
+              {isOwner && m.id !== user.id && <ResetLinkButton userId={m.id} name={m.name.split(" ")[0]} />}
+            </div>
           </li>
         ))}
       </ul>

@@ -5,8 +5,10 @@ import { Timeline, formatKm } from "@/components/Timeline";
 import { VehicleForm } from "@/components/VehicleForm";
 import { requireUser } from "@/lib/auth";
 import { findVehicleByPlate, listRecords } from "@/lib/data";
-import { analyze } from "@/lib/ledger";
-import { isValidPlate, normalizePlate } from "@/lib/plate";
+import { ShareWithOwner } from "@/components/ShareWithOwner";
+import { analyze, RECORD_LABELS } from "@/lib/ledger";
+import { formatPlate, isValidPlate, normalizePlate } from "@/lib/plate";
+import { appUrl } from "@/lib/url";
 
 export default async function VehiclePage({
   params,
@@ -38,6 +40,13 @@ export default async function VehiclePage({
 
   const records = await listRecords(vehicle.id);
   const a = analyze(records);
+
+  // Mensaje para el dueño: el último trabajo que cargó este taller (o el último del auto) y el link al informe.
+  const last = [...records].reverse().find((r) => r.workshopId === user.workshopId) ?? records.at(-1);
+  const reportLink = `${await appUrl()}/i/${vehicle.publicSlug}`;
+  const ownerMessage = last
+    ? `Hola! Desde ${user.workshopName} cargamos el trabajo de tu ${vehicle.make} ${vehicle.model} (${formatPlate(vehicle.plate)}): ${RECORD_LABELS[last.type].toLowerCase()} a los ${formatKm(last.odometerKm)}. Queda firmado en el legajo del auto, junto con todo su historial. Lo podés ver y compartir acá: ${reportLink}`
+    : "";
 
   return (
     <main className="space-y-5 px-5">
@@ -74,6 +83,8 @@ export default async function VehiclePage({
         <Link href={`/i/${vehicle.publicSlug}`} className="btn-secondary text-sm">Informe público</Link>
         <Link href={`/taller/auto/${vehicle.plate}/qr`} className="btn-secondary text-sm">QR para el auto</Link>
       </div>
+
+      {records.length > 0 && <ShareWithOwner key={cargado ?? "x"} message={ownerMessage} defaultOpen={!!cargado} />}
 
       {a.kmIssues > 0 && (
         <p className="rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">

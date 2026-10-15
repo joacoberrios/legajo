@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Legajo — la historia clínica del auto",
   description: "Historial verificado de cada auto, cargado por los talleres.",
+  applicationName: "Legajo",
+  appleWebApp: { capable: true, title: "Legajo", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

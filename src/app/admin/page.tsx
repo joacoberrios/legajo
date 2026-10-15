@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { setWorkshopVerified } from "@/app/actions/admin";
+import { ResetLinkButton } from "@/components/PasswordForms";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -14,6 +15,7 @@ type WorkshopRow = {
   city: string | null;
   verified: boolean;
   createdAt: Date;
+  ownerId: string | null;
   ownerName: string | null;
   ownerEmail: string | null;
   users: number;
@@ -51,14 +53,14 @@ export default async function AdminPage() {
 
   const workshops = await sql<WorkshopRow[]>`
     SELECT w.id, w.name, w.cuit, w.city, w.verified, w.created_at,
-      owner.name AS owner_name, owner.email AS owner_email,
+      owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email,
       (SELECT count(*) FROM users u WHERE u.workshop_id = w.id)::int AS users,
       (SELECT count(*) FROM service_records r WHERE r.workshop_id = w.id)::int AS records,
       (SELECT count(*) FROM service_records r WHERE r.workshop_id = w.id AND r.created_at > now() - interval '7 days')::int AS records_week,
       (SELECT max(r.created_at) FROM service_records r WHERE r.workshop_id = w.id) AS last_record
     FROM workshops w
     LEFT JOIN LATERAL (
-      SELECT name, email FROM users u WHERE u.workshop_id = w.id AND u.role = 'owner' ORDER BY u.created_at LIMIT 1
+      SELECT id, name, email FROM users u WHERE u.workshop_id = w.id AND u.role = 'owner' ORDER BY u.created_at LIMIT 1
     ) owner ON true
     ORDER BY w.verified ASC, records_week DESC, w.created_at DESC
   `;
@@ -161,6 +163,7 @@ function WorkshopCard({ w }: { w: WorkshopRow }) {
           </button>
         )}
       </form>
+      {w.ownerId && <ResetLinkButton userId={w.ownerId} name={(w.ownerName ?? "").split(" ")[0] || "dueño"} />}
     </article>
   );
 }

@@ -2,6 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { analyze, computeHash, verifyChain, type LedgerRecord, type HashInput } from "./ledger.ts";
 import { formatPlate, isValidPlate, normalizePlate } from "./plate.ts";
+import { toWhatsAppNumber } from "./phone.ts";
+
+test("celulares argentinos a formato WhatsApp", () => {
+  assert.equal(toWhatsAppNumber("261 663-7057"), "5492616637057");
+  assert.equal(toWhatsAppNumber("0261 15 663 7057"), "5492616637057");
+  assert.equal(toWhatsAppNumber("+54 9 261 663 7057"), "5492616637057");
+  assert.equal(toWhatsAppNumber("11 15 4444 5555"), "5491144445555");
+  assert.equal(toWhatsAppNumber("2994 15 123456"), "5492994123456");
+  assert.equal(toWhatsAppNumber("12345"), null);
+});
 
 function chain(inputs: Omit<HashInput, "prevHash" | "vehicleId" | "userId" | "items" | "notes" | "correctsId">[]): LedgerRecord[] {
   const out: LedgerRecord[] = [];
