@@ -38,7 +38,7 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postg
 2. En **Storage**, creá una base **Neon (Postgres)** y conectala al proyecto: Vercel agrega `DATABASE_URL`.
 3. En **Settings → Environment Variables** agregá:
    - `AUTH_SECRET`: un texto largo y aleatorio (`openssl rand -base64 32`).
-   - `NEXT_PUBLIC_APP_URL`: la URL del proyecto, por ejemplo `https://legajo.vercel.app` (es la que va en los QR).
+   - No hace falta cargar la URL de la app: en producción se usa sola el dominio de producción del proyecto (el que va en los QR y en los links de WhatsApp). `NEXT_PUBLIC_APP_URL` solo sirve para desarrollo local.
    - `ADMIN_EMAILS`: emails con acceso a `/admin`, separados por coma.
    - Opcional: `SUPPORT_WHATSAPP` (tu celular) para el botón de ayuda en `/recuperar`.
    - Opcional: `RESEND_API_KEY` y `EMAIL_FROM` (de un dominio verificado en Resend) para recuperar contraseña por email.

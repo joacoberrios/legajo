@@ -44,9 +44,16 @@ export default async function VehiclePage({
   // Mensaje para el dueño: el último trabajo que cargó este taller (o el último del auto) y el link al informe.
   const last = [...records].reverse().find((r) => r.workshopId === user.workshopId) ?? records.at(-1);
   const reportLink = `${await appUrl()}/i/${vehicle.publicSlug}`;
-  const ownerMessage = last
-    ? `Hola! Desde ${user.workshopName} cargamos el trabajo de tu ${vehicle.make} ${vehicle.model} (${formatPlate(vehicle.plate)}): ${RECORD_LABELS[last.type].toLowerCase()} a los ${formatKm(last.odometerKm)}. Queda firmado en el legajo del auto, junto con todo su historial. Lo podés ver y compartir acá: ${reportLink}`
-    : "";
+  const car = `tu ${vehicle.make} ${vehicle.model} (${formatPlate(vehicle.plate)})`;
+  let ownerMessage = "";
+  if (last && last.type === "correction") {
+    // Una corrección reemplaza un registro anterior: se describe por el trabajo corregido.
+    const original = records.find((r) => r.id === last.correctsId);
+    const what = original ? `el registro de ${RECORD_LABELS[original.type].toLowerCase()}` : "un registro";
+    ownerMessage = `Hola! Desde ${user.workshopName} actualizamos ${what} de ${car}, ahora a los ${formatKm(last.odometerKm)}. Queda firmado en el legajo del auto, junto con todo su historial. Lo podés ver y compartir acá: ${reportLink}`;
+  } else if (last) {
+    ownerMessage = `Hola! Desde ${user.workshopName} cargamos el trabajo de ${car}: ${RECORD_LABELS[last.type].toLowerCase()} a los ${formatKm(last.odometerKm)}. Queda firmado en el legajo del auto, junto con todo su historial. Lo podés ver y compartir acá: ${reportLink}`;
+  }
 
   return (
     <main className="space-y-5 px-5">
