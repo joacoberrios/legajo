@@ -1,21 +1,31 @@
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
-import { requireUser } from "@/lib/auth";
+import { isAdmin, requireUser } from "@/lib/auth";
 
 export default async function TallerLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   return (
     <div className="pb-10">
-      <header className="flex items-center justify-between px-5 pt-6 pb-3 print:hidden">
-        <Link href="/taller" className="flex flex-col">
+      <header className="flex items-center justify-between gap-3 px-5 pt-6 pb-3 print:hidden">
+        <Link href="/taller" className="flex min-w-0 flex-col">
           <span className="text-xl font-extrabold tracking-tight">Legajo</span>
-          <span className="text-xs text-muted">{user.workshopName}</span>
+          <span className="truncate text-xs text-muted">{user.workshopName}</span>
         </Link>
-        <form action={logout}>
-          <button type="submit" className="h-11 rounded-xl border border-line bg-white px-3 text-sm font-semibold">
-            Salir
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          {isAdmin(user) && (
+            <Link href="/admin" className="flex h-11 items-center rounded-xl bg-ink px-3 text-sm font-semibold text-white">
+              Admin
+            </Link>
+          )}
+          <Link href="/taller/equipo" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+            Equipo
+          </Link>
+          <form action={logout}>
+            <button type="submit" className="h-11 rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+              Salir
+            </button>
+          </form>
+        </div>
       </header>
       {!user.workshopVerified && (
         <p className="mx-5 mb-3 rounded-xl bg-amber-50 print:hidden px-3.5 py-3 text-sm text-amber-900">

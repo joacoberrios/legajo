@@ -13,6 +13,8 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 - **Correcciones:** un error se corrige con un registro nuevo que apunta al original; el original queda visible como corregido.
 - **Informe público** (`/i/<slug>`): puntaje 0–100, chequeos (integridad, km, respaldo, services, origen 0 km) y la línea de tiempo sin notas internas.
 - **Sticker QR** imprimible por auto.
+- **Equipo** (`/taller/equipo`): el dueño invita mecánicos con un link de un solo uso (vence en 7 días) que puede mandar por WhatsApp. Cada registro queda firmado por quien lo cargó.
+- **Panel de admin** (`/admin`): talleres activos en la semana contra la meta del piloto (10), métricas generales y verificación de talleres con un botón.
 
 ## Cómo garantiza que el historial no se adultere
 
@@ -34,14 +36,11 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postg
 3. En **Settings → Environment Variables** agregá:
    - `AUTH_SECRET`: un texto largo y aleatorio (`openssl rand -base64 32`).
    - `NEXT_PUBLIC_APP_URL`: la URL del proyecto, por ejemplo `https://legajo.vercel.app` (es la que va en los QR).
+   - `ADMIN_EMAILS`: emails con acceso a `/admin`, separados por coma.
    - Opcional para probar: `AUTO_VERIFY_WORKSHOPS=true`, así los talleres nuevos quedan verificados al registrarse.
 4. En **Storage**, creá un **Blob** store y conectalo al proyecto (para fotos y comprobantes). Vercel agrega `BLOB_STORE_ID` y `BLOB_WEBHOOK_PUBLIC_KEY`; la app usa las credenciales OIDC del proyecto, sin token fijo. Por defecto asume un store **privado**; si lo creaste público, agregá `BLOB_ACCESS=public`.
 5. Deploy. El build corre las migraciones (`scripts/migrate.mjs`) antes de compilar.
-6. Entrá a `/registro`, creá el primer taller y, si no usaste `AUTO_VERIFY_WORKSHOPS`, verificalo en la base:
-
-   ```sql
-   UPDATE workshops SET verified = true WHERE cuit = '20123456789';
-   ```
+6. Entrá a `/registro`, creá el primer taller y verificalo desde `/admin` (con un email listado en `ADMIN_EMAILS`).
 
 ## Desarrollo local
 

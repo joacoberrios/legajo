@@ -74,3 +74,19 @@ export async function requireUser(): Promise<SessionUser> {
   if (!user) redirect("/login");
   return user;
 }
+
+/** Admins de Legajo: emails en ADMIN_EMAILS, separados por coma. */
+export function isAdmin(user: SessionUser | null): boolean {
+  if (!user) return false;
+  const admins = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return admins.includes(user.email.toLowerCase());
+}
+
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/taller");
+  return user;
+}
