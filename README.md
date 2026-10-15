@@ -9,8 +9,9 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 - **Talleres:** registro con CUIT, login, búsqueda por patente o escaneo del QR del parabrisas.
 - **Legajo del auto:** alta (patente, VIN, marca, modelo, año) y línea de tiempo de todos los registros.
 - **Carga de registros:** tipo de trabajo, km, fecha, trabajos hechos y notas internas. Queda firmado por el taller y el usuario.
+- **Respaldo:** foto del tablero, fotos del trabajo y comprobantes (foto o PDF) por registro, sellados dentro de la firma. Un registro con foto del tablero o comprobante figura como "Con respaldo".
 - **Correcciones:** un error se corrige con un registro nuevo que apunta al original; el original queda visible como corregido.
-- **Informe público** (`/i/<slug>`): puntaje 0–100, chequeos (integridad, km, services, origen 0 km) y la línea de tiempo sin notas internas.
+- **Informe público** (`/i/<slug>`): puntaje 0–100, chequeos (integridad, km, respaldo, services, origen 0 km) y la línea de tiempo sin notas internas.
 - **Sticker QR** imprimible por auto.
 
 ## Cómo garantiza que el historial no se adultere
@@ -19,6 +20,8 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 2. Cada registro guarda el SHA-256 de su contenido y del registro anterior del mismo auto (`src/lib/ledger.ts`). Si alguien altera una fila directo en la base, el informe muestra "Historial alterado".
 3. Taller y usuario se toman de la sesión, nunca del formulario.
 4. Si el km es menor al último registrado, se pide confirmación y el informe marca la inconsistencia.
+5. Los adjuntos se suben directo del celular a Vercel Blob, pero al firmar el servidor descarga cada archivo y calcula su SHA-256. Esa huella entra en el hash del registro (formato `legajo:v2`) y se guarda en `record_attachments`, que también es inmutable. Si alguien reemplaza un archivo o su registro en la base, la cadena se rompe. Los registros sin adjuntos siguen usando el formato `legajo:v1`.
+6. En el informe público se ven las fotos del tablero y del trabajo; los comprobantes solo se indican, porque pueden tener datos del dueño.
 
 ## Stack
 
@@ -32,8 +35,9 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postg
    - `AUTH_SECRET`: un texto largo y aleatorio (`openssl rand -base64 32`).
    - `NEXT_PUBLIC_APP_URL`: la URL del proyecto, por ejemplo `https://legajo.vercel.app` (es la que va en los QR).
    - Opcional para probar: `AUTO_VERIFY_WORKSHOPS=true`, así los talleres nuevos quedan verificados al registrarse.
-4. Deploy. El build corre las migraciones (`scripts/migrate.mjs`) antes de compilar.
-5. Entrá a `/registro`, creá el primer taller y, si no usaste `AUTO_VERIFY_WORKSHOPS`, verificalo en la base:
+4. En **Storage**, creá un **Blob** store y conectalo al proyecto: Vercel agrega `BLOB_READ_WRITE_TOKEN` (para fotos y comprobantes).
+5. Deploy. El build corre las migraciones (`scripts/migrate.mjs`) antes de compilar.
+6. Entrá a `/registro`, creá el primer taller y, si no usaste `AUTO_VERIFY_WORKSHOPS`, verificalo en la base:
 
    ```sql
    UPDATE workshops SET verified = true WHERE cuit = '20123456789';

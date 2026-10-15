@@ -29,7 +29,39 @@ test("una cadena válida verifica y puntúa", () => {
   assert.equal(a.kmIssues, 0);
   assert.equal(a.workshops, 2);
   assert.equal(a.currentKm, 50000);
-  assert.equal(a.score, 50 + 12 + 12 + 10);
+  assert.equal(a.backedCount, 0);
+  assert.equal(a.score, 40 + 12 + 12 + 10); // sin respaldo no suma esos 14
+});
+
+test("un registro sin adjuntos conserva el hash v1 (registros viejos siguen verificando)", () => {
+  const base: HashInput = {
+    vehicleId: "v1", workshopId: "w1", userId: "u1", type: "service", odometerKm: 1000, performedOn: "2026-01-01",
+    items: ["Cambio de aceite"], notes: null, correctsId: null, prevHash: null, createdAt: new Date("2026-01-01T10:00:00Z"),
+  };
+  assert.equal(computeHash(base), computeHash({ ...base, attachments: [] }));
+  assert.notEqual(computeHash(base), computeHash({ ...base, attachments: [{ kind: "odometer", sha256: "a".repeat(64) }] }));
+});
+
+test("adjuntos: cambiar un archivo rompe la cadena y el respaldo suma puntaje", () => {
+  const recs = chain([
+    { workshopId: "w1", type: "origin", odometerKm: 10, performedOn: "2021-02-01", createdAt: new Date("2026-01-01T10:00:00Z") },
+    { workshopId: "w1", type: "service", odometerKm: 50000, performedOn: "2026-06-01", createdAt: new Date("2026-06-01T10:00:00Z") },
+  ]);
+  // Rearmo la cadena con adjuntos en ambos registros
+  let prev: string | null = null;
+  const sealed = recs.map((r, i) => {
+    const input: HashInput = { ...r, prevHash: prev, attachments: [{ kind: i === 0 ? "document" : "odometer", sha256: String(i).repeat(64) }] };
+    const hash = computeHash(input);
+    prev = hash;
+    return { ...input, id: r.id, hash };
+  });
+  const ok = analyze(sealed, now);
+  assert.equal(ok.chainOk, true);
+  assert.equal(ok.backedCount, 2);
+  assert.equal(ok.score, 40 + 8 + 12 + 10 + 14);
+
+  sealed[0].attachments = [{ kind: "document", sha256: "f".repeat(64) }]; // alguien reemplaza el comprobante
+  assert.equal(analyze(sealed, now).chainOk, false);
 });
 
 test("alterar un registro rompe la cadena y el puntaje cae a 0", () => {

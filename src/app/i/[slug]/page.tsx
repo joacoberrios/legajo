@@ -46,6 +46,7 @@ export default async function PublicReport({ params }: { params: Promise<{ slug:
             <h2 className="font-bold">{a.verdict}</h2>
             <p className="text-xs leading-snug text-[#B9B7B0]">
               {a.effectiveCount} registro{a.effectiveCount === 1 ? "" : "s"} de {a.workshops} taller{a.workshops === 1 ? "" : "es"}
+              {` · ${a.backedCount} con respaldo`}
               {a.currentKm !== null ? ` · último km: ${a.currentKm.toLocaleString("es-AR")}` : ""}
             </p>
           </div>
@@ -76,7 +77,7 @@ export default async function PublicReport({ params }: { params: Promise<{ slug:
         </section>
 
         <p className="pt-2 text-center text-xs text-muted">
-          Cada registro está firmado por el taller que lo cargó y no se puede modificar.
+          Cada registro está firmado por el taller que lo cargó y no se puede modificar. Las fotos y comprobantes quedan sellados con la firma.
         </p>
       </div>
     </main>

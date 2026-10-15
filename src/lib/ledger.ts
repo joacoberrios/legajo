@@ -1,9 +1,12 @@
 // Lógica pura del legajo: tipos de registro, cadena de hashes y análisis del informe.
 // No toca la base de datos, así se puede testear sola.
 import { createHash } from "node:crypto";
-import type { RecordType } from "./records-meta.ts";
+import { hasBacking, type RecordType } from "./records-meta.ts";
 
 export * from "./records-meta.ts";
+
+/** Huella de un adjunto dentro del registro: qué es y el SHA-256 de su contenido. */
+export type AttachmentSeal = { kind: string; sha256: string };
 
 /** Lo que entra en el hash: todo lo que define al registro. */
 export type HashInput = {
@@ -18,6 +21,8 @@ export type HashInput = {
   correctsId: string | null;
   prevHash: string | null;
   createdAt: Date;
+  /** En el orden en que se cargaron. Vacío o ausente = registro sin adjuntos. */
+  attachments?: AttachmentSeal[];
 };
 
 export type LedgerRecord = HashInput & {
@@ -26,10 +31,12 @@ export type LedgerRecord = HashInput & {
   workshopName?: string;
 };
 
-/** SHA-256 de los campos en orden fijo. Cambiar este orden rompe la verificación de registros viejos. */
+/**
+ * SHA-256 de los campos en orden fijo. Cambiar este orden rompe la verificación de registros viejos.
+ * v1: registros sin adjuntos (idéntico al formato original). v2: suma la huella de cada adjunto.
+ */
 export function computeHash(r: HashInput): string {
-  const payload = JSON.stringify([
-    "legajo:v1",
+  const fields = [
     r.vehicleId,
     r.workshopId,
     r.userId,
@@ -41,7 +48,12 @@ export function computeHash(r: HashInput): string {
     r.correctsId ?? null,
     r.prevHash ?? null,
     r.createdAt.toISOString(),
-  ]);
+  ];
+  const seals = r.attachments ?? [];
+  const payload =
+    seals.length === 0
+      ? JSON.stringify(["legajo:v1", ...fields])
+      : JSON.stringify(["legajo:v2", ...fields, seals.map((a) => [a.kind, a.sha256])]);
   return createHash("sha256").update(payload).digest("hex");
 }
 
@@ -64,6 +76,7 @@ export type Analysis = {
   currentKm: number | null;
   workshops: number;
   effectiveCount: number;
+  backedCount: number;
   kmIssues: number;
   checks: Check[];
 };
@@ -92,6 +105,8 @@ export function analyze(records: LedgerRecord[], now: Date = new Date()): Analys
     .map((r) => Date.parse(r.performedOn))
     .reduce((a, b) => Math.max(a, b), 0);
   const serviceRecent = lastService > 0 && now.getTime() - lastService <= 365 * DAY;
+  const backedCount = effective.filter((r) => hasBacking(r.attachments)).length;
+  const backedRatio = effective.length ? backedCount / effective.length : 0;
 
   const checks: Check[] = [
     {
@@ -103,6 +118,11 @@ export function analyze(records: LedgerRecord[], now: Date = new Date()): Analys
       label: "Kilometraje consistente",
       ok: kmIssues === 0,
       note: kmIssues === 0 ? "sin retrocesos" : `${kmIssues} retroceso${kmIssues > 1 ? "s" : ""}`,
+    },
+    {
+      label: "Registros con respaldo",
+      ok: effective.length > 0 && backedCount === effective.length,
+      note: `${backedCount} de ${effective.length}`,
     },
     {
       label: "Service en los últimos 12 meses",
@@ -117,12 +137,19 @@ export function analyze(records: LedgerRecord[], now: Date = new Date()): Analys
   ];
 
   if (effective.length === 0) {
-    return { score: null, verdict: "Todavía sin registros", chainOk: chain.ok, currentKm: null, workshops: 0, effectiveCount: 0, kmIssues: 0, checks };
+    return { score: null, verdict: "Todavía sin registros", chainOk: chain.ok, currentKm: null, workshops: 0, effectiveCount: 0, backedCount: 0, kmIssues: 0, checks };
   }
 
+  // 40 base + hasta 24 por cantidad + 12 service reciente + 10 origen + hasta 14 por respaldo = 100
   let score = 0;
   if (chain.ok) {
-    score = 50 + Math.min(effective.length * 4, 24) + (serviceRecent ? 12 : 0) + (hasOrigin ? 10 : 0) - Math.min(kmIssues * 20, 40);
+    score =
+      40 +
+      Math.min(effective.length * 4, 24) +
+      (serviceRecent ? 12 : 0) +
+      (hasOrigin ? 10 : 0) +
+      Math.round(backedRatio * 14) -
+      Math.min(kmIssues * 20, 40);
     score = Math.max(0, Math.min(100, score));
   }
 
@@ -134,5 +161,5 @@ export function analyze(records: LedgerRecord[], now: Date = new Date()): Analys
         ? "Historial aceptable"
         : "Historial con faltantes";
 
-  return { score, verdict, chainOk: chain.ok, currentKm: maxKm, workshops, effectiveCount: effective.length, kmIssues, checks };
+  return { score, verdict, chainOk: chain.ok, currentKm: maxKm, workshops, effectiveCount: effective.length, backedCount, kmIssues, checks };
 }

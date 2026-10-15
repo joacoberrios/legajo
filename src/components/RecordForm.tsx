@@ -1,19 +1,27 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createRecordAction } from "@/app/actions/vehicles";
+import { AttachmentPicker, type PickedFile } from "@/components/AttachmentPicker";
 import { COMMON_ITEMS, RECORD_LABELS, SELECTABLE_TYPES } from "@/lib/records-meta";
 
 export function RecordForm({
   plate,
   lastKm,
   correcting,
+  workshopId,
 }: {
   plate: string;
   lastKm: number | null;
   correcting: { id: string; label: string; km: number; performedOn: string; items: string[] } | null;
+  workshopId: string;
 }) {
   const [state, action, pending] = useActionState(createRecordAction, undefined);
+  // Los adjuntos viven fuera del <form> con key: si hay un error de validación no se pierden.
+  const [files, setFiles] = useState<PickedFile[]>([]);
+  const uploading = files.some((f) => f.status === "uploading");
+  const failed = files.some((f) => f.status === "error");
+  const attachmentsJson = JSON.stringify(files.filter((f) => f.status === "done").map((f) => ({ url: f.url, kind: f.kind })));
   const today = new Date().toISOString().slice(0, 10);
   const v = state?.values; // lo tipeado antes de un error
 
@@ -99,6 +107,9 @@ export function RecordForm({
         <textarea id="notes" name="notes" rows={3} defaultValue={v?.notes} required={!!correcting} className="field" />
       </div>
 
+      <AttachmentPicker files={files} setFiles={setFiles} workshopId={workshopId} plate={plate} />
+      <input type="hidden" name="attachments" value={attachmentsJson} />
+
       {state?.error && (
         <div role="alert" className="space-y-2 rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">
           <p>{state.error}</p>
@@ -113,8 +124,8 @@ export function RecordForm({
 
       <div className="sticky bottom-0 -mx-5 space-y-2 border-t border-line bg-paper px-5 pt-3 pb-6">
         <p className="text-center text-xs text-muted">Queda firmado por tu taller y no se puede editar, solo corregir.</p>
-        <button type="submit" disabled={pending} className="btn-primary">
-          {pending ? "Firmando…" : "Firmar y publicar"}
+        <button type="submit" disabled={pending || uploading || failed} className="btn-primary">
+          {pending ? "Verificando y firmando…" : uploading ? "Subiendo archivos…" : failed ? "Quitá el archivo con error" : "Firmar y publicar"}
         </button>
       </div>
     </form>

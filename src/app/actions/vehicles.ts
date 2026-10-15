@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { verifyAttachments } from "@/lib/attachments";
 import { requireUser } from "@/lib/auth";
 import { appendRecord, createVehicle, findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
 import { isRecordType } from "@/lib/ledger";
@@ -115,6 +116,10 @@ async function createRecord(form: FormData): Promise<ActionState> {
     }
   }
 
+  // Al final: descarga y mide cada archivo, así no gasta tiempo si el resto del formulario tiene errores.
+  const attachments = await verifyAttachments(text(form, "attachments"), user.workshopId);
+  if (!attachments.ok) return { error: attachments.error };
+
   await appendRecord({
     vehicleId: vehicle.id,
     workshopId: user.workshopId,
@@ -125,6 +130,7 @@ async function createRecord(form: FormData): Promise<ActionState> {
     items,
     notes,
     correctsId,
+    attachments: attachments.items,
   });
   redirect(`/taller/auto/${plate}?cargado=1`);
 }

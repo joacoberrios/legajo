@@ -38,3 +38,29 @@ export const COMMON_ITEMS = [
 export function isRecordType(value: string): value is RecordType {
   return (RECORD_TYPES as readonly string[]).includes(value);
 }
+
+// --- Adjuntos
+
+export const ATTACHMENT_KINDS = ["odometer", "work", "document"] as const;
+export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
+
+export const ATTACHMENT_LABELS: Record<AttachmentKind, string> = {
+  odometer: "Foto del tablero",
+  work: "Foto del trabajo",
+  document: "Comprobante",
+};
+
+export const ATTACHMENT_LIMITS = {
+  maxFiles: 8,
+  maxBytes: 10 * 1024 * 1024,
+  types: ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"],
+};
+
+export function isAttachmentKind(value: string): value is AttachmentKind {
+  return (ATTACHMENT_KINDS as readonly string[]).includes(value);
+}
+
+/** Respaldo documental: foto del tablero o comprobante. Las fotos del trabajo suman pero no alcanzan solas. */
+export function hasBacking(attachments: { kind: string }[] | undefined): boolean {
+  return !!attachments?.some((a) => a.kind === "odometer" || a.kind === "document");
+}

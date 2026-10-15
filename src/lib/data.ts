@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "./db";
-import { computeHash, type LedgerRecord, type RecordType } from "./ledger";
+import { computeHash, type AttachmentKind, type LedgerRecord, type RecordType } from "./ledger";
 
 export type Vehicle = {
   id: string;
@@ -14,7 +14,21 @@ export type Vehicle = {
   createdAt: Date;
 };
 
-export type RecordRow = LedgerRecord & { workshopName: string; userName: string };
+export type Attachment = {
+  id: string;
+  recordId: string;
+  kind: AttachmentKind;
+  position: number;
+  url: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+};
+
+/** Adjunto ya descargado y medido en el servidor, listo para sellar en un registro. */
+export type VerifiedAttachment = Pick<Attachment, "kind" | "url" | "contentType" | "sizeBytes" | "sha256">;
+
+export type RecordRow = LedgerRecord & { workshopName: string; userName: string; attachments: Attachment[] };
 
 export async function findVehicleByPlate(plate: string): Promise<Vehicle | null> {
   const rows = await db()<Vehicle[]>`SELECT * FROM vehicles WHERE plate = ${plate}`;
@@ -28,7 +42,8 @@ export async function findVehicleBySlug(slug: string): Promise<Vehicle | null> {
 
 /** Registros del auto en orden de carga (el orden de la cadena de hashes). */
 export async function listRecords(vehicleId: string): Promise<RecordRow[]> {
-  return db()<RecordRow[]>`
+  const sql = db();
+  const records = await sql<Omit<RecordRow, "attachments">[]>`
     SELECT r.id, r.vehicle_id, r.workshop_id, r.user_id, r.type, r.odometer_km,
            r.performed_on::text AS performed_on, r.items, r.notes, r.corrects_id,
            r.prev_hash, r.hash, r.created_at,
@@ -39,6 +54,22 @@ export async function listRecords(vehicleId: string): Promise<RecordRow[]> {
     WHERE r.vehicle_id = ${vehicleId}
     ORDER BY r.created_at ASC, r.id ASC
   `;
+  if (records.length === 0) return [];
+
+  const attachments = await sql<Attachment[]>`
+    SELECT a.id, a.record_id, a.kind, a.position, a.url, a.content_type, a.size_bytes, a.sha256
+    FROM record_attachments a
+    JOIN service_records r ON r.id = a.record_id
+    WHERE r.vehicle_id = ${vehicleId}
+    ORDER BY a.record_id, a.position
+  `;
+  const byRecord = new Map<string, Attachment[]>();
+  for (const a of attachments) {
+    const list = byRecord.get(a.recordId) ?? [];
+    list.push(a);
+    byRecord.set(a.recordId, list);
+  }
+  return records.map((r) => ({ ...r, attachments: byRecord.get(r.id) ?? [] }));
 }
 
 export type RecentVehicle = Vehicle & { lastActivity: Date; lastType: RecordType | null };
@@ -103,7 +134,9 @@ export async function appendRecord(input: {
   items: string[];
   notes: string | null;
   correctsId: string | null;
+  attachments: VerifiedAttachment[];
 }): Promise<string> {
+  const { attachments, ...fields } = input;
   return db().begin(async (tx) => {
     await tx`SELECT id FROM vehicles WHERE id = ${input.vehicleId} FOR UPDATE`;
     const last = await tx<{ hash: string }[]>`
@@ -115,7 +148,8 @@ export async function appendRecord(input: {
     const prevHash = last[0]?.hash ?? null;
     // Milisegundos exactos: es lo que entra en el hash y lo que se vuelve a leer al verificar.
     const createdAt = new Date();
-    const hash = computeHash({ ...input, prevHash, createdAt });
+    const seals = attachments.map((a) => ({ kind: a.kind, sha256: a.sha256 }));
+    const hash = computeHash({ ...fields, prevHash, createdAt, attachments: seals });
 
     const [row] = await tx<{ id: string }[]>`
       INSERT INTO service_records
@@ -125,6 +159,13 @@ export async function appendRecord(input: {
          ${input.performedOn}, ${tx.array(input.items)}::text[], ${input.notes}, ${input.correctsId}, ${prevHash}, ${hash}, ${createdAt})
       RETURNING id
     `;
+
+    for (const [position, a] of attachments.entries()) {
+      await tx`
+        INSERT INTO record_attachments (record_id, kind, position, url, content_type, size_bytes, sha256)
+        VALUES (${row.id}, ${a.kind}, ${position}, ${a.url}, ${a.contentType}, ${a.sizeBytes}, ${a.sha256})
+      `;
+    }
     return row.id;
   });
 }

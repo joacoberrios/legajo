@@ -53,7 +53,7 @@ export default async function NewRecordPage({
           </p>
         </div>
       </div>
-      <RecordForm plate={plate} lastKm={await lastOdometer(vehicle.id)} correcting={correcting} />
+      <RecordForm plate={plate} lastKm={await lastOdometer(vehicle.id)} correcting={correcting} workshopId={user.workshopId} />
     </main>
   );
 }

@@ -13,6 +13,7 @@
     "test": "node --test --experimental-strip-types src/lib/*.test.ts"
   },
   "dependencies": {
+    "@vercel/blob": "^1.0.0",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
     "jsqr": "^1.4.0",

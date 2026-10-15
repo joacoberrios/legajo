@@ -1,6 +1,44 @@
 import Link from "next/link";
-import type { RecordRow } from "@/lib/data";
-import { RECORD_LABELS, type RecordType } from "@/lib/records-meta";
+import type { Attachment, RecordRow } from "@/lib/data";
+import { ATTACHMENT_LABELS, hasBacking, RECORD_LABELS, type RecordType } from "@/lib/records-meta";
+
+const isPhoto = (a: Attachment) => a.contentType.startsWith("image/") && !/hei[cf]/.test(a.contentType);
+
+/**
+ * Miniaturas de los adjuntos. En el informe público los comprobantes no se abren
+ * (pueden tener datos del dueño): solo se indica que existen.
+ */
+function Attachments({ items, mode }: { items: Attachment[]; mode: "taller" | "public" }) {
+  return (
+    <ul className="flex flex-wrap gap-2 pt-1">
+      {items.map((a) => {
+        const label = ATTACHMENT_LABELS[a.kind];
+        if (mode === "public" && a.kind === "document") {
+          return (
+            <li key={a.id} className="flex h-16 items-center rounded-lg border border-line bg-paper px-2.5 text-[11px] font-semibold text-muted">
+              Comprobante adjunto
+            </li>
+          );
+        }
+        return (
+          <li key={a.id}>
+            <a href={a.url} target="_blank" rel="noopener noreferrer" title={label} className="block">
+              {isPhoto(a) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={a.url} alt={label} loading="lazy" className="h-16 w-16 rounded-lg border border-line object-cover" />
+              ) : (
+                <span className="flex h-16 w-16 flex-col items-center justify-center rounded-lg border border-line bg-paper text-center">
+                  <span className="font-mono text-xs font-semibold">{a.contentType === "application/pdf" ? "PDF" : "FOTO"}</span>
+                  <span className="px-1 text-[9px] leading-tight text-muted">{label}</span>
+                </span>
+              )}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 const DOT: Record<RecordType, string> = {
   service: "bg-accent",
@@ -61,9 +99,15 @@ export function Timeline({
             <div className="min-w-0 flex-1 pb-3.5">
               <div className={`card space-y-1.5 px-3.5 py-3 ${fix ? "opacity-60" : ""}`}>
                 <div className="flex items-baseline justify-between gap-2">
-                  <h3 className="text-sm font-semibold">
+                  <h3 className="flex flex-wrap items-center gap-x-1.5 text-sm font-semibold">
                     {RECORD_LABELS[r.type]}
-                    {fix && <span className="ml-1.5 text-xs font-medium text-warn">· corregido</span>}
+                    {fix && <span className="text-xs font-medium text-warn">· corregido</span>}
+                    {hasBacking(r.attachments) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-ok">
+                        <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                        Con respaldo
+                      </span>
+                    )}
                   </h3>
                   <span className="font-mono text-xs whitespace-nowrap text-muted">{formatKm(r.odometerKm)}</span>
                 </div>
@@ -73,6 +117,7 @@ export function Timeline({
                 </p>
                 {r.items.length > 0 && <p className="text-sm leading-snug">{r.items.join(", ")}.</p>}
                 {mode === "taller" && r.notes && <p className="text-sm leading-snug text-muted">{r.notes}</p>}
+                {r.attachments.length > 0 && <Attachments items={r.attachments} mode={mode} />}
                 {canCorrect && plate && (
                   <Link href={`/taller/auto/${plate}/nuevo?corrige=${r.id}`} className="inline-block pt-1 text-xs font-semibold text-accent">
                     Corregir este registro
