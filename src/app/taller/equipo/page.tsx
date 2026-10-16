@@ -18,6 +18,11 @@ export default async function TeamPage() {
         Volver
       </Link>
 
+      <Link href="/taller/datos" className="card flex min-h-12 items-center justify-between px-4 text-sm font-semibold">
+        Datos del taller: teléfono y ubicación
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+      </Link>
+
       <div>
         <h1 className="text-xl font-bold">Equipo del taller</h1>
         <p className="mt-1 text-sm text-muted">

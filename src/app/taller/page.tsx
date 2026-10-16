@@ -3,6 +3,7 @@ import { searchPlate } from "@/app/actions/vehicles";
 import { Plate } from "@/components/Plate";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { QrScanner } from "@/components/QrScanner";
+import { VehicleScan } from "@/components/VehicleScan";
 import { requireUser } from "@/lib/auth";
 import { recentVehicles } from "@/lib/data";
 import { RECORD_LABELS } from "@/lib/ledger";
@@ -15,6 +16,7 @@ export default async function TallerHome({ searchParams }: { searchParams: Promi
   return (
     <main className="space-y-6 px-5">
       <InstallPrompt />
+      <VehicleScan />
       <QrScanner />
 
       <form action={searchPlate} className="space-y-2">

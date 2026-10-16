@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plate } from "@/components/Plate";
 import { Timeline, formatKm } from "@/components/Timeline";
-import { VehicleForm } from "@/components/VehicleForm";
+import { CompleteVehicleForm, VehicleForm } from "@/components/VehicleForm";
+import { decodePrefill } from "@/lib/vision-types";
 import { requireUser } from "@/lib/auth";
 import { findVehicleByPlate, listRecords } from "@/lib/data";
 import { ShareWithOwner } from "@/components/ShareWithOwner";
@@ -15,12 +16,13 @@ export default async function VehiclePage({
   searchParams,
 }: {
   params: Promise<{ plate: string }>;
-  searchParams: Promise<{ cargado?: string }>;
+  searchParams: Promise<{ cargado?: string; tv?: string }>;
 }) {
   const user = await requireUser();
   const plate = normalizePlate((await params).plate);
   if (!isValidPlate(plate)) notFound();
-  const { cargado } = await searchParams;
+  const { cargado, tv } = await searchParams;
+  const prefill = decodePrefill(tv); // datos leídos de la tarjeta verde
 
   const vehicle = await findVehicleByPlate(plate);
 
@@ -33,7 +35,7 @@ export default async function VehiclePage({
           <h1 className="text-xl font-bold">Este auto todavía no tiene legajo</h1>
           <p className="text-sm text-muted">Cargá sus datos una vez y queda disponible para todos los talleres.</p>
         </div>
-        <VehicleForm plate={plate} />
+        <VehicleForm plate={plate} prefill={prefill} />
       </main>
     );
   }
@@ -73,6 +75,7 @@ export default async function VehiclePage({
             <p className="font-mono text-xs text-[#B9B7B0]">
               {vehicle.vin ? `VIN ${vehicle.vin.slice(0, 8)}•••••${vehicle.vin.slice(-4)}` : "VIN sin cargar"}
               {vehicle.year ? ` · ${vehicle.year}` : ""}
+              {vehicle.bodyType ? ` · ${vehicle.bodyType}` : ""}
             </p>
           </div>
           <span className={`rounded-full px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap ${a.chainOk ? "bg-[#14532D] text-[#DCFCE7]" : "bg-red-900 text-red-100"}`}>
@@ -90,6 +93,10 @@ export default async function VehiclePage({
         <Link href={`/i/${vehicle.publicSlug}`} className="btn-secondary text-sm">Informe público</Link>
         <Link href={`/taller/auto/${vehicle.plate}/qr`} className="btn-secondary text-sm">QR para el auto</Link>
       </div>
+
+      {(!vehicle.vin || !vehicle.engineNumber) && (
+        <CompleteVehicleForm plate={vehicle.plate} missingVin={!vehicle.vin} missingEngine={!vehicle.engineNumber} prefill={prefill} />
+      )}
 
       {records.length > 0 && <ShareWithOwner key={cargado ?? "x"} message={ownerMessage} defaultOpen={!!cargado} />}
 

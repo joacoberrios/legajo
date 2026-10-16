@@ -2,6 +2,8 @@ import Link from "next/link";
 import { setWorkshopVerified } from "@/app/actions/admin";
 import { ResetLinkButton } from "@/components/PasswordForms";
 import { requireAdmin } from "@/lib/auth";
+import { maskCuit } from "@/lib/cuit";
+import { formatPhone } from "@/lib/phone";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,10 @@ type WorkshopRow = {
   name: string;
   cuit: string;
   city: string | null;
+  phone: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
   verified: boolean;
   createdAt: Date;
   ownerId: string | null;
@@ -26,9 +32,7 @@ type WorkshopRow = {
 
 type Totals = { vehicles: number; records: number; backed: number; activeWeek: number; recordsWeek: number };
 
-function formatCuit(c: string) {
-  return c.length === 11 ? `${c.slice(0, 2)}-${c.slice(2, 10)}-${c.slice(10)}` : c;
-}
+const formatCuit = maskCuit;
 
 function ago(d: Date | null) {
   if (!d) return "sin registros";
@@ -52,7 +56,7 @@ export default async function AdminPage() {
   `;
 
   const workshops = await sql<WorkshopRow[]>`
-    SELECT w.id, w.name, w.cuit, w.city, w.verified, w.created_at,
+    SELECT w.id, w.name, w.cuit, w.city, w.phone, w.address, w.lat, w.lng, w.verified, w.created_at,
       owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email,
       (SELECT count(*) FROM users u WHERE u.workshop_id = w.id)::int AS users,
       (SELECT count(*) FROM service_records r WHERE r.workshop_id = w.id)::int AS records,
@@ -141,7 +145,22 @@ function WorkshopCard({ w }: { w: WorkshopRow }) {
         <div className="min-w-0">
           <h3 className="truncate font-semibold">{w.name}</h3>
           <p className="font-mono text-xs text-muted">CUIT {formatCuit(w.cuit)}</p>
-          <p className="text-xs text-muted">{[w.city, w.ownerName, w.ownerEmail].filter(Boolean).join(" · ")}</p>
+          <p className="text-xs text-muted">{[w.ownerName, w.ownerEmail].filter(Boolean).join(" · ")}</p>
+          <p className="text-xs">
+            {w.phone ? (
+              <a href={`tel:+54${w.phone}`} className="font-mono font-semibold text-accent">{formatPhone(w.phone)}</a>
+            ) : (
+              <span className="text-warn">sin teléfono</span>
+            )}
+            {" · "}
+            {w.lat !== null && w.lng !== null ? (
+              <a href={`https://www.google.com/maps?q=${w.lat},${w.lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-accent">
+                {w.address ?? "ver en el mapa"}
+              </a>
+            ) : (
+              <span className="text-warn">sin ubicación</span>
+            )}
+          </p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${w.verified ? "bg-emerald-50 text-ok" : "bg-amber-50 text-warn"}`}>
           {w.verified ? "Verificado" : "Pendiente"}

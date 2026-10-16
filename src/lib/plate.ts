@@ -24,3 +24,9 @@ export function normalizeVin(input: string): string | null {
   if (!vin) return null;
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(vin) ? vin : "INVALID";
 }
+
+/** VIN leído de una foto: 17 caracteres sin I, O, Q. Corrige las confusiones inequívocas (O/Q→0, I→1). */
+export function cleanVin(raw: string): string | null {
+  const v = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/[OQ]/g, "0").replace(/I/g, "1");
+  return /^[A-HJ-NPR-Z0-9]{17}$/.test(v) ? v : null;
+}

@@ -17,6 +17,8 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 - **Aviso al dueño:** después de cada carga se abre un botón para mandarle por WhatsApp el link al informe de su auto (el teléfono no se guarda).
 - **App instalable:** manifest e íconos para agregarla a la pantalla de inicio; en Android aparece un botón Instalar y en iPhone las instrucciones.
 - **Recuperar contraseña:** links de un solo uso (24 h). El dueño los genera para su equipo desde Equipo y el admin para los dueños desde `/admin`. Si se configura Resend, también hay autoservicio por email en `/recuperar`.
+- **Lectura con cámara:** foto a la patente, a la tarjeta verde (completa marca, modelo, tipo, año, chasis y motor) o al chasis. La lee un modelo de visión (Claude) con respuesta en formato fijo; el servidor valida los formatos argentinos de patente y VIN (17 caracteres, sin I/O/Q) y el taller siempre confirma en pantalla antes de usar el dato. Las fotos no se guardan y nunca se transcriben datos del titular.
+- **Registro de taller:** CUIT con guiones automáticos y dígito verificador, teléfono, dirección confirmada en el mapa (búsqueda o ubicación del celular), nombre, apellido y contraseña repetida.
 - **Panel de admin** (`/admin`): talleres activos en la semana contra la meta del piloto (10), métricas generales y verificación de talleres con un botón.
 
 ## Cómo garantiza que el historial no se adultere
@@ -40,6 +42,7 @@ Next.js 15 (App Router, server actions) · TypeScript · Tailwind CSS 4 · Postg
    - `AUTH_SECRET`: un texto largo y aleatorio (`openssl rand -base64 32`).
    - No hace falta cargar la URL de la app: en producción se usa sola el dominio de producción del proyecto (el que va en los QR y en los links de WhatsApp). `NEXT_PUBLIC_APP_URL` solo sirve para desarrollo local.
    - `ADMIN_EMAILS`: emails con acceso a `/admin`, separados por coma.
+   - `ANTHROPIC_API_KEY`: para leer patentes, tarjeta verde y chasis con la cámara (de console.anthropic.com). Opcional `OCR_MODEL` (por defecto `claude-sonnet-5-5`).
    - Opcional: `SUPPORT_WHATSAPP` (tu celular) para el botón de ayuda en `/recuperar`.
    - Opcional: `RESEND_API_KEY` y `EMAIL_FROM` (de un dominio verificado en Resend) para recuperar contraseña por email.
    - Opcional para probar: `AUTO_VERIFY_WORKSHOPS=true`, así los talleres nuevos quedan verificados al registrarse.

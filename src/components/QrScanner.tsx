@@ -90,27 +90,17 @@ export function QrScanner() {
 
   return (
     <div className="space-y-3">
-      <div className="relative flex h-64 flex-col items-center justify-center gap-4 overflow-hidden rounded-3xl bg-ink">
-        {open ? (
+      {open && (
+        <div className="relative h-64 overflow-hidden rounded-3xl bg-ink">
           <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
-        ) : (
-          <>
-            <div className="relative h-28 w-56">
-              <span className="absolute top-0 left-0 h-7 w-7 rounded-tl-md border-t-[3px] border-l-[3px] border-accent" />
-              <span className="absolute top-0 right-0 h-7 w-7 rounded-tr-md border-t-[3px] border-r-[3px] border-accent" />
-              <span className="absolute bottom-0 left-0 h-7 w-7 rounded-bl-md border-b-[3px] border-l-[3px] border-accent" />
-              <span className="absolute right-0 bottom-0 h-7 w-7 rounded-br-md border-r-[3px] border-b-[3px] border-accent" />
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="absolute inset-0 m-auto h-12 w-12" fill="none" stroke="#E7E5DF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
-              </svg>
-            </div>
-            <p className="max-w-60 text-center text-sm text-[#E7E5DF]">Escaneá el QR del parabrisas o buscá por patente</p>
-          </>
-        )}
-        {open && <span className="absolute inset-x-10 top-1/2 h-0.5 bg-accent/80" aria-hidden="true" />}
-      </div>
-      <button type="button" onClick={() => { setMessage(null); setOpen((o) => !o); }} className="btn-primary">
-        {open ? "Cancelar" : "Escanear QR"}
+          <span className="absolute inset-x-10 top-1/2 h-0.5 bg-accent/80" aria-hidden="true" />
+        </div>
+      )}
+      <button type="button" onClick={() => { setMessage(null); setOpen((o) => !o); }} className="btn-secondary text-sm">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
+        </svg>
+        {open ? "Cancelar" : "Escanear QR del parabrisas"}
       </button>
       {message && <p role="status" className="text-sm text-muted">{message}</p>}
     </div>

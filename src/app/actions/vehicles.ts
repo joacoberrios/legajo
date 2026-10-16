@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { verifyAttachments } from "@/lib/attachments";
 import { requireUser } from "@/lib/auth";
-import { appendRecord, createVehicle, findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
+import { appendRecord, completeVehicle, createVehicle, findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
 import { isRecordType } from "@/lib/ledger";
 import { isValidPlate, normalizePlate, normalizeVin } from "@/lib/plate";
 
@@ -28,12 +28,16 @@ export async function searchPlate(form: FormData) {
   redirect(`/taller/auto/${plate}`);
 }
 
+const engine = (s: string) => s.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 30) || null;
+
 export async function createVehicleAction(_: ActionState, form: FormData): Promise<ActionState> {
   const user = await requireUser();
   const plate = normalizePlate(text(form, "plate"));
   const vin = normalizeVin(text(form, "vin"));
-  const make = text(form, "make");
-  const model = text(form, "model");
+  const make = text(form, "make").slice(0, 60);
+  const model = text(form, "model").slice(0, 80);
+  const bodyType = text(form, "bodyType").slice(0, 60) || null;
+  const engineNumber = engine(text(form, "engineNumber"));
   const yearRaw = text(form, "year");
   const year = yearRaw ? Number(yearRaw) : null;
 
@@ -46,9 +50,30 @@ export async function createVehicleAction(_: ActionState, form: FormData): Promi
   if (await findVehicleByPlate(plate)) redirect(`/taller/auto/${plate}`);
 
   try {
-    await createVehicle({ plate, vin, make, model, year, workshopId: user.workshopId });
+    await createVehicle({ plate, vin, make, model, year, bodyType, engineNumber, workshopId: user.workshopId });
   } catch (e) {
     if (String(e).includes("vehicles_vin_key")) return { error: "Ese VIN ya está asociado a otra patente." };
+    throw e;
+  }
+  redirect(`/taller/auto/${plate}`);
+}
+
+/** Completa chasis y/o motor de un auto que no los tenía. Una vez cargados no se cambian desde la app. */
+export async function completeVehicleAction(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireUser();
+  const plate = normalizePlate(text(form, "plate"));
+  const vehicle = await findVehicleByPlate(plate);
+  if (!vehicle) return { error: "No encontramos el auto." };
+
+  const vin = vehicle.vin ? null : normalizeVin(text(form, "vin"));
+  const engineNumber = vehicle.engineNumber ? null : engine(text(form, "engineNumber"));
+  if (vin === "INVALID") return { error: "El VIN debe tener 17 caracteres (sin I, O ni Q)." };
+  if (!vin && !engineNumber) return { error: "Cargá el número de chasis o el de motor." };
+
+  try {
+    await completeVehicle(vehicle.id, { vin, engineNumber });
+  } catch (e) {
+    if (String(e).includes("vehicles_vin_key")) return { error: "Ese VIN ya está asociado a otra patente. Revisalo." };
     throw e;
   }
   redirect(`/taller/auto/${plate}`);

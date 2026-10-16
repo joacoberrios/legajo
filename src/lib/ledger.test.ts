@@ -1,8 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { analyze, computeHash, verifyChain, type LedgerRecord, type HashInput } from "./ledger.ts";
-import { formatPlate, isValidPlate, normalizePlate } from "./plate.ts";
-import { toWhatsAppNumber } from "./phone.ts";
+import { cleanVin, formatPlate, isValidPlate, normalizePlate } from "./plate.ts";
+import { formatPhone, nationalPhone, toWhatsAppNumber } from "./phone.ts";
+import { isValidCuit, maskCuit } from "./cuit.ts";
+
+test("CUIT: máscara y dígito verificador", () => {
+  assert.equal(maskCuit("20"), "20");
+  assert.equal(maskCuit("2012345"), "20-12345");
+  assert.equal(maskCuit("20-12345678-6"), "20-12345678-6");
+  assert.equal(maskCuit("201234567890000"), "20-12345678-9");
+  assert.equal(isValidCuit("20-12345678-6"), true);
+  assert.equal(isValidCuit("20-12345678-9"), false);
+  assert.equal(isValidCuit("30-71234567-1"), true);
+  assert.equal(isValidCuit("99-12345678-6"), false);
+});
+
+test("teléfonos fijos y celulares", () => {
+  assert.equal(nationalPhone("261 4231234"), "2614231234");
+  assert.equal(nationalPhone("(0261) 15 663-7057"), "2616637057");
+  assert.equal(formatPhone("2616637057"), "261 663-7057");
+  assert.equal(formatPhone("1144445555"), "11 4444-5555");
+});
 
 test("celulares argentinos a formato WhatsApp", () => {
   assert.equal(toWhatsAppNumber("261 663-7057"), "5492616637057");
@@ -111,4 +130,11 @@ test("patentes", () => {
   assert.equal(isValidPlate("12345"), false);
   assert.equal(formatPlate("AE482KD"), "AE 482 KD");
   assert.equal(formatPlate("OKB903"), "OKB 903");
+});
+
+test("VIN leído de foto", () => {
+  assert.equal(cleanVin("8AJHA3CD5M4127000"), "8AJHA3CD5M4127000");
+  assert.equal(cleanVin("8ajha3cdOm4I27Q00"), "8AJHA3CD0M4127000");
+  assert.equal(cleanVin("8AJHA3CD-5M41-27000"), "8AJHA3CD5M4127000");
+  assert.equal(cleanVin("8AJHA3CD5M412700"), null);
 });

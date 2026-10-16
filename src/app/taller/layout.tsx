@@ -27,6 +27,11 @@ export default async function TallerLayout({ children }: { children: React.React
           </form>
         </div>
       </header>
+      {user.role === "owner" && !user.workshopComplete && (
+        <Link href="/taller/datos" className="mx-5 mb-3 block rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900 print:hidden">
+          Falta el teléfono y la ubicación del taller. <span className="font-semibold underline">Completalos acá</span>
+        </Link>
+      )}
       {!user.workshopVerified && (
         <p className="mx-5 mb-3 rounded-xl bg-amber-50 print:hidden px-3.5 py-3 text-sm text-amber-900">
           Tu taller está pendiente de verificación. Ya podés consultar legajos; la carga se habilita cuando verifiquemos el CUIT.

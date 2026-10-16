@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { acceptInvite, createInvite } from "@/app/actions/team";
+import { NameFields, PasswordPair } from "@/components/FormFields";
 
 /** Botón del dueño: crea un link de invitación y lo deja listo para mandar por WhatsApp o copiar. */
 export function InviteCreator({ workshopName }: { workshopName: string }) {
@@ -59,18 +60,12 @@ export function AcceptInviteForm({ token }: { token: string }) {
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="token" value={token} />
-      <div>
-        <label htmlFor="name" className="label">Tu nombre</label>
-        <input id="name" name="name" autoComplete="name" required className="field" />
-      </div>
+      <NameFields />
       <div>
         <label htmlFor="email" className="label">Email</label>
         <input id="email" name="email" type="email" autoComplete="email" required className="field" />
       </div>
-      <div>
-        <label htmlFor="password" className="label">Contraseña (mínimo 8 caracteres)</label>
-        <input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required className="field" />
-      </div>
+      <PasswordPair />
       {state?.error && (
         <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">{state.error}</p>
       )}

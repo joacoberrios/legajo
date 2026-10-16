@@ -41,13 +41,16 @@ export type AcceptState = { error?: string } | undefined;
 /** El mecánico crea su cuenta desde el link. Se usa una sola vez y queda asociado al taller que invitó. */
 export async function acceptInvite(_: AcceptState, form: FormData): Promise<AcceptState> {
   const token = String(form.get("token") ?? "");
-  const name = String(form.get("name") ?? "").trim();
+  const firstName = String(form.get("firstName") ?? "").trim();
+  const lastName = String(form.get("lastName") ?? "").trim();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
+  const confirm = String(form.get("confirm") ?? "");
 
-  if (!name) return { error: "Completá tu nombre." };
+  if (!firstName || !lastName) return { error: "Completá nombre y apellido." };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "El email no es válido." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
+  if (password !== confirm) return { error: "Las contraseñas no coinciden." };
 
   const passwordHash = await hashPassword(password);
   const result = await db().begin(async (tx) => {
@@ -62,8 +65,8 @@ export async function acceptInvite(_: AcceptState, form: FormData): Promise<Acce
     if (taken.length) return { error: "Ya hay una cuenta con ese email. Ingresá con ella o usá otro email." };
 
     const [u] = await tx<{ id: string }[]>`
-      INSERT INTO users (workshop_id, email, name, password_hash, role)
-      VALUES (${inv.workshopId}, ${email}, ${name}, ${passwordHash}, 'mechanic')
+      INSERT INTO users (workshop_id, email, name, first_name, last_name, password_hash, role)
+      VALUES (${inv.workshopId}, ${email}, ${`${firstName} ${lastName}`}, ${firstName}, ${lastName}, ${passwordHash}, 'mechanic')
       RETURNING id
     `;
     await tx`UPDATE invitations SET used_at = now(), used_by = ${u.id} WHERE id = ${inv.id}`;

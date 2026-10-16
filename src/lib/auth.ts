@@ -49,6 +49,7 @@ export type SessionUser = {
   workshopId: string;
   workshopName: string;
   workshopVerified: boolean;
+  workshopComplete: boolean; // tiene teléfono y ubicación en el mapa
 };
 
 /** Usuario logueado, leído siempre de la base (nunca del formulario). */
@@ -59,7 +60,8 @@ export async function currentUser(): Promise<SessionUser | null> {
     const { payload } = await jwtVerify(token, secret());
     if (typeof payload.uid !== "string") return null;
     const rows = await db()<SessionUser[]>`
-      SELECT u.id, u.name, u.email, u.role, w.id AS workshop_id, w.name AS workshop_name, w.verified AS workshop_verified
+      SELECT u.id, u.name, u.email, u.role, w.id AS workshop_id, w.name AS workshop_name, w.verified AS workshop_verified,
+             (w.phone IS NOT NULL AND w.lat IS NOT NULL) AS workshop_complete
       FROM users u JOIN workshops w ON w.id = u.workshop_id
       WHERE u.id = ${payload.uid}
     `;

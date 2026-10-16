@@ -10,6 +10,8 @@ export type Vehicle = {
   make: string;
   model: string;
   year: number | null;
+  bodyType: string | null;
+  engineNumber: string | null;
   publicSlug: string;
   createdAt: Date;
 };
@@ -102,15 +104,24 @@ export async function createVehicle(input: {
   make: string;
   model: string;
   year: number | null;
+  bodyType: string | null;
+  engineNumber: string | null;
   workshopId: string;
 }): Promise<Vehicle> {
   const slug = randomBytes(9).toString("base64url"); // 12 caracteres, no adivinable
   const [v] = await db()<Vehicle[]>`
-    INSERT INTO vehicles (plate, vin, make, model, year, public_slug, created_by_workshop)
-    VALUES (${input.plate}, ${input.vin}, ${input.make}, ${input.model}, ${input.year}, ${slug}, ${input.workshopId})
+    INSERT INTO vehicles (plate, vin, make, model, year, body_type, engine_number, public_slug, created_by_workshop)
+    VALUES (${input.plate}, ${input.vin}, ${input.make}, ${input.model}, ${input.year}, ${input.bodyType}, ${input.engineNumber}, ${slug}, ${input.workshopId})
     RETURNING *
   `;
   return v;
+}
+
+/** Completa chasis o motor solo si estaban vacíos (no pisa datos ya cargados). */
+export async function completeVehicle(id: string, data: { vin: string | null; engineNumber: string | null }) {
+  const sql = db();
+  if (data.vin) await sql`UPDATE vehicles SET vin = ${data.vin} WHERE id = ${id} AND vin IS NULL`;
+  if (data.engineNumber) await sql`UPDATE vehicles SET engine_number = ${data.engineNumber} WHERE id = ${id} AND engine_number IS NULL`;
 }
 
 export async function lastOdometer(vehicleId: string): Promise<number | null> {
