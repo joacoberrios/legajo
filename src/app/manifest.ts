@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Legajo — la historia clínica de cada auto",
+    name: "Legajo",
     short_name: "Legajo",
     description: "Historial verificado de cada auto, cargado por los talleres.",
     start_url: "/taller",

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Legajo — la historia clínica del auto",
+  title: "Legajo — Que el auto hable por sí solo",
   description: "Historial verificado de cada auto, cargado por los talleres.",
   applicationName: "Legajo",
   appleWebApp: { capable: true, title: "Legajo", statusBarStyle: "default" },
