@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plate } from "@/components/Plate";
+import { PlateScanner } from "@/components/PlateScanner";
 import { CameraIcon, CardIcon, ConfidenceNote, PhotoButton } from "@/components/PhotoRead";
 import { isValidPlate, normalizePlate } from "@/lib/plate";
 import { encodePrefill, type CardRead, type PlateRead, type ReadResult } from "@/lib/vision-types";
@@ -18,6 +19,7 @@ export function VehicleScan() {
   const [cardRead, setCardRead] = useState<CardRead | null>(null);
   const [plate, setPlate] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const reset = () => {
     if (preview) URL.revokeObjectURL(preview);
@@ -66,15 +68,30 @@ export function VehicleScan() {
 
   return (
     <section className="space-y-3">
-      <div className="grid grid-cols-2 gap-2.5">
-        <PhotoButton kind="plate" label="Foto a la patente" busyLabel="Leyendo patente…" onResult={handle} icon={CameraIcon} className="btn-primary text-sm" />
-        <PhotoButton kind="card" label="Foto a la tarjeta verde" busyLabel="Leyendo tarjeta…" onResult={handle} icon={CardIcon} className="btn-secondary text-sm" />
-      </div>
+      {scanning ? (
+        <PlateScanner
+          onCancel={() => setScanning(false)}
+          onDetected={(r) => {
+            setScanning(false);
+            reset();
+            setPlateRead(r);
+            setPlate(r.plate);
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5">
+          <button type="button" onClick={() => { reset(); setScanning(true); }} className="btn-primary text-sm">
+            {CameraIcon}
+            Escanear patente
+          </button>
+          <PhotoButton kind="card" label="Foto a la tarjeta verde" busyLabel="Leyendo tarjeta…" onResult={handle} icon={CardIcon} className="btn-secondary text-sm" />
+        </div>
+      )}
 
       {error && (
         <div role="alert" className="space-y-2 rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">
           <p>{error}</p>
-          <p className="text-xs">Consejo: de frente, sin reflejos, que la patente ocupe buena parte de la foto.</p>
+          <p className="text-xs">Consejo: de frente, sin reflejos y que ocupe toda la foto.</p>
         </div>
       )}
 

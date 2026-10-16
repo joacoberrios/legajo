@@ -21,6 +21,10 @@ async function toJpeg(file: File): Promise<Blob> {
   return file;
 }
 
+/**
+ * Lee una foto. Si el servidor tiene IA configurada la usa (más precisa); si no, lee en el celular
+ * con OCR gratis. El resultado siempre se confirma en pantalla.
+ */
 export async function readPhoto(kind: ReadKind, file: File): Promise<ReadResult> {
   const image = await toJpeg(file);
   const body = new FormData();
@@ -28,9 +32,16 @@ export async function readPhoto(kind: ReadKind, file: File): Promise<ReadResult>
   body.append("image", image, "foto.jpg");
   try {
     const res = await fetch("/api/leer", { method: "POST", body });
-    return (await res.json()) as ReadResult;
+    if (res.status !== 503) return (await res.json()) as ReadResult;
+  } catch {}
+  // Sin IA (o sin conexión con el servidor): OCR local.
+  try {
+    const ocr = await import("@/lib/ocr-client");
+    if (kind === "card") return await ocr.readCardFile(file);
+    if (kind === "vin") return await ocr.readVinFile(file);
+    return await ocr.readPlateFile(file);
   } catch {
-    return { ok: false, error: "Sin conexión. Probá de nuevo." };
+    return { ok: false, error: "No pudimos leer la foto en este celular. Tipeá los datos." };
   }
 }
 

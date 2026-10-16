@@ -138,3 +138,43 @@ test("VIN leído de foto", () => {
   assert.equal(cleanVin("8AJHA3CD-5M41-27000"), "8AJHA3CD5M4127000");
   assert.equal(cleanVin("8AJHA3CD5M412700"), null);
 });
+
+import { fitPlate, parseVehicleCard, plateCandidates, vinCandidates } from "./ocr-parse.ts";
+
+test("OCR: patentes con confusiones típicas", () => {
+  assert.deepEqual(fitPlate("AE482KD", "LLDDDLL"), { plate: "AE482KD", fixes: 0 });
+  assert.deepEqual(fitPlate("A3482KD", "LLDDDLL"), null);
+  assert.equal(fitPlate("AE4B2K0", "LLDDDLL")?.plate, "AE482KO");
+  assert.equal(plateCandidates("REPUBLICA ARGENTINA\nAE 4B2 KD")[0].plate, "AE482KD");
+  assert.equal(plateCandidates("0KB 9O3")[0].plate, "OKB903");
+  assert.equal(plateCandidates("RA\nA E482K D\n")[0].plate, "AE482KD");
+  assert.equal(plateCandidates("HOLA").length, 0);
+});
+
+test("OCR: VIN dentro de texto", () => {
+  assert.deepEqual(vinCandidates("CHASIS N 8AJHA3CD5M 4127000\nMOTOR 1GD123"), ["8AJHA3CD5M4127000"]);
+  assert.equal(vinCandidates("9BWZZZ377VTOO4251")[0], "9BWZZZ377VT004251");
+});
+
+test("OCR: tarjeta verde", () => {
+  const text = `CEDULA DE IDENTIFICACION DEL AUTOMOTOR
+DOMINIO: AE 482 KD
+MARCA: TOYOTA
+MODELO: HILUX 4X4 D/C SRX 2.8 TDI 6 A/T
+TIPO: PICK-UP CABINA DOBLE
+USO: PRIVADO
+MARCA MOTOR: TOYOTA
+N° MOTOR: 1GD4567890
+MARCA CHASIS: TOYOTA
+N° CHASIS: 8AJHA3CD5M4127000
+TITULAR: PEREZ JUAN
+DOCUMENTO: 12345678`;
+  const c = parseVehicleCard(text);
+  assert.equal(c.plate, "AE482KD");
+  assert.equal(c.make, "TOYOTA");
+  assert.equal(c.model, "HILUX 4X4 D/C SRX 2.8 TDI 6 A/T");
+  assert.equal(c.bodyType, "PICK-UP CABINA DOBLE");
+  assert.equal(c.vin, "8AJHA3CD5M4127000");
+  assert.equal(c.engineNumber, "1GD4567890");
+  assert.ok(!JSON.stringify(c).includes("PEREZ"));
+});
