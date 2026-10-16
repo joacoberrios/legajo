@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
+import { splitAddress } from "@/lib/address";
 
 /**
  * Geocodificación desde el servidor (búsqueda y dirección de un punto), con respaldo:
- * primero OpenStreetMap Nominatim y, si falla, Photon (Komoot). Se hace acá y no en el navegador
+ * primero Georef (datos.gob.ar: callejero oficial argentino, ubica la altura exacta), después
+ * OpenStreetMap Nominatim y, si falla, Photon (Komoot). Se hace acá y no en el navegador
  * para identificarnos como pide la política de uso y no depender de bloqueos del celular.
  */
 
 const UA = "Legajo/1.0 (historial de autos; contacto via legajo-nu.vercel.app)";
 
-export type GeoPlace = { label: string; address: string; lat: number; lng: number };
+/** exact: el punto corresponde a la altura (no solo a la calle). */
+export type GeoPlace = { label: string; address: string; lat: number; lng: number; exact: boolean };
 
 // Límite simple por IP: 40 consultas por minuto.
 const hits = new Map<string, number[]>();
@@ -38,14 +41,14 @@ function fromNominatim(r: NominatimItem): GeoPlace {
       city: a.city || a.town || a.village || a.suburb || a.city_district,
       state: a.state,
     }) || r.display_name;
-  return { label: r.display_name, address, lat: Number(r.lat), lng: Number(r.lon) };
+  return { label: r.display_name, address, lat: Number(r.lat), lng: Number(r.lon), exact: Boolean(a.house_number) };
 }
 
 function fromPhoton(f: PhotonFeature): GeoPlace {
   const p = f.properties;
   const address = shortFromParts({ street: p.street || p.name, number: p.housenumber, city: p.city || p.district, state: p.state });
   const label = [p.name, p.street && `${p.street} ${p.housenumber ?? ""}`.trim(), p.city, p.state, p.country].filter(Boolean).join(", ");
-  return { label: label || address, address: address || label, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+  return { label: label || address, address: address || label, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], exact: Boolean(p.housenumber) };
 }
 
 async function getJson<T>(url: string): Promise<T> {
@@ -54,7 +57,47 @@ async function getJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+type GeorefDireccion = {
+  nomenclatura?: string;
+  altura?: { valor?: number | string | null };
+  calle?: { nombre?: string };
+  departamento?: { nombre?: string };
+  localidad_censal?: { nombre?: string };
+  provincia?: { nombre?: string };
+  ubicacion?: { lat?: number | null; lon?: number | null };
+};
+
+const title = (s = "") => s.toLowerCase().replace(/(^|[\s.(])\p{L}/gu, (c) => c.toUpperCase());
+
+/** Georef interpola la altura sobre el callejero oficial: "Francia 445" cae en la cuadra correcta. */
+async function georef(q: string): Promise<GeoPlace[]> {
+  const parts = splitAddress(q);
+  if (!parts) return [];
+  const base = `https://apis.datos.gob.ar/georef/api/direcciones?max=5&direccion=${encodeURIComponent(`${parts.street} ${parts.number}`)}`;
+  const prov = parts.province ? `&provincia=${encodeURIComponent(parts.province)}` : "";
+  const attempts = parts.place
+    ? [`&departamento=${encodeURIComponent(parts.place)}${prov}`, `&localidad_censal=${encodeURIComponent(parts.place)}${prov}`]
+    : [prov];
+  for (const extra of attempts) {
+    try {
+      const data = await getJson<{ direcciones?: GeorefDireccion[] }>(base + extra);
+      const found = (data.direcciones ?? [])
+        .filter((d) => d.ubicacion?.lat != null && d.ubicacion?.lon != null)
+        .map((d): GeoPlace => {
+          const street = `${title(d.calle?.nombre)} ${d.altura?.valor ?? parts.number}`.trim();
+          const city = d.localidad_censal?.nombre || d.departamento?.nombre;
+          const address = [street, city, d.provincia?.nombre].filter(Boolean).join(", ");
+          return { label: address, address, lat: Number(d.ubicacion!.lat), lng: Number(d.ubicacion!.lon), exact: true };
+        });
+      if (found.length) return found;
+    } catch {}
+  }
+  return [];
+}
+
 async function search(q: string): Promise<GeoPlace[]> {
+  const exact = await georef(q);
+  if (exact.length) return exact;
   try {
     const data = await getJson<NominatimItem[]>(
       `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=ar&q=${encodeURIComponent(q)}`,

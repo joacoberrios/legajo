@@ -8,6 +8,15 @@ export type Point = { lat: number; lng: number };
 
 const MENDOZA: Point = { lat: -32.8895, lng: -68.8458 };
 
+const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const TILES = [
+  {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    options: { maxZoom: 20, subdomains: "abcd", attribution: `${OSM} &copy; <a href="https://carto.com/attributions">CARTO</a>` },
+  },
+  { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", options: { maxZoom: 19, attribution: OSM } },
+];
+
 /**
  * Mapa interactivo (OpenStreetMap + Leaflet). Tocar el mapa o arrastrar el pin mueve el punto.
  * `point` controla el pin desde afuera (búsqueda o GPS); `onPick` avisa cuando el usuario lo mueve.
@@ -17,6 +26,7 @@ export function MapPicker({ point, onPick }: { point: Point | null; onPick: (p: 
   const map = useRef<LMap | null>(null);
   const marker = useRef<Marker | null>(null);
   const leaflet = useRef<typeof import("leaflet") | null>(null);
+  const resize = useRef<ResizeObserver | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
 
@@ -30,21 +40,35 @@ export function MapPicker({ point, onPick }: { point: Point | null; onPick: (p: 
       leaflet.current = L;
       const start = point ?? MENDOZA;
       const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([start.lat, start.lng], point ? 17 : 12);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(m);
+      // Mapa base gratuito. Si el primero no carga (bloqueo o caída), se cambia solo al siguiente.
+      let current = 0;
+      let errors = 0;
+      let layer = L.tileLayer(TILES[0].url, TILES[0].options).addTo(m);
+      const onError = () => {
+        if (++errors < 4 || current >= TILES.length - 1) return;
+        current++;
+        errors = 0;
+        m.removeLayer(layer);
+        layer = L.tileLayer(TILES[current].url, TILES[current].options).addTo(m);
+        layer.on("tileerror", onError);
+      };
+      layer.on("tileerror", onError);
       m.on("click", (e: LeafletMouseEvent) => {
         place(e.latlng);
         pick.current({ lat: e.latlng.lat, lng: e.latlng.lng });
       });
       map.current = m;
       if (point) place(point);
-      // El contenedor puede cambiar de tamaño al montar: recalcular.
+      // El contenedor puede cambiar de tamaño (al montar, al aparecer resultados): recalcular.
       setTimeout(() => m.invalidateSize(), 200);
+      if (typeof ResizeObserver !== "undefined") {
+        resize.current = new ResizeObserver(() => m.invalidateSize());
+        resize.current.observe(box.current);
+      }
     })();
     return () => {
       cancelled = true;
+      resize.current?.disconnect();
       map.current?.remove();
       map.current = null;
       marker.current = null;

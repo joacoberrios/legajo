@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import type { Point } from "@/components/MapPicker";
+import { typedNumber } from "@/lib/address";
 
 // El mapa solo existe en el navegador.
 const MapPicker = dynamic(() => import("@/components/MapPicker").then((m) => m.MapPicker), {
@@ -11,7 +12,7 @@ const MapPicker = dynamic(() => import("@/components/MapPicker").then((m) => m.M
 });
 
 type Place = { address: string; lat: number; lng: number };
-type GeoPlace = { label: string; address: string; lat: number; lng: number };
+type GeoPlace = { label: string; address: string; lat: number; lng: number; exact?: boolean };
 
 async function geo(params: string): Promise<{ ok: boolean; results?: GeoPlace[]; place?: GeoPlace | null; error?: string }> {
   try {
@@ -72,8 +73,14 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
 
   function choose(r: GeoPlace) {
     setPoint({ lat: r.lat, lng: r.lng });
-    setAddress(r.address);
     setResults([]);
+    const number = typedNumber(address);
+    if (!r.exact && number) {
+      // El mapa encontró la calle pero no la altura: se conserva lo tipeado y se pide ubicar el pin.
+      setMessage({ tone: "error", text: `Encontramos la calle pero no el ${number}. El pin quedó en algún punto de la calle: arrastralo o tocá el mapa sobre el taller.` });
+      return;
+    }
+    setAddress(r.address);
     setMessage({ tone: "info", text: "Revisá el pin. Si no está justo sobre el taller, tocá el mapa o arrastralo." });
   }
 

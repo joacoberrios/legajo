@@ -208,3 +208,12 @@ test("OCR: la patente no se arma con la palabra de al lado", () => {
   assert.ok(!samePlateLoose("HGO315", "HGO316"));
   assert.ok(!samePlateLoose("HGO315", "AE482KD"));
 });
+
+import { splitAddress } from "./address.ts";
+
+test("direcciones tipeadas", () => {
+  assert.deepEqual(splitAddress("francia 445 godoy cruz"), { street: "francia", number: 445, place: "godoy cruz", province: "" });
+  assert.deepEqual(splitAddress("San Martín 1234, Godoy Cruz, Mendoza"), { street: "San Martín", number: 1234, place: "Godoy Cruz", province: "Mendoza" });
+  assert.deepEqual(splitAddress("Av. 25 de Mayo 980 Ciudad"), { street: "Av. 25 de Mayo", number: 980, place: "Ciudad", province: "" });
+  assert.equal(splitAddress("godoy cruz"), null);
+});
