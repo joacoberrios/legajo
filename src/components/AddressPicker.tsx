@@ -1,111 +1,128 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
+import type { Point } from "@/components/MapPicker";
+
+// El mapa solo existe en el navegador.
+const MapPicker = dynamic(() => import("@/components/MapPicker").then((m) => m.MapPicker), {
+  ssr: false,
+  loading: () => <div className="flex h-64 items-center justify-center rounded-2xl border border-line bg-white text-sm text-muted">Cargando mapa…</div>,
+});
 
 type Place = { address: string; lat: number; lng: number };
-type Result = { display_name: string; lat: string; lon: string };
+type GeoPlace = { label: string; address: string; lat: number; lng: number };
 
-const NOMINATIM = "https://nominatim.openstreetmap.org";
+async function geo(params: string): Promise<{ ok: boolean; results?: GeoPlace[]; place?: GeoPlace | null; error?: string }> {
+  try {
+    const res = await fetch(`/api/geo?${params}`);
+    return await res.json();
+  } catch {
+    return { ok: false, error: "Sin conexión." };
+  }
+}
 
-/** Arma una dirección corta a partir de la respuesta de OpenStreetMap. */
-function shortAddress(r: { display_name: string; address?: Record<string, string> }) {
-  const a = r.address;
-  if (!a) return r.display_name;
-  const street = [a.road, a.house_number].filter(Boolean).join(" ");
-  const city = a.city || a.town || a.village || a.suburb || a.city_district || "";
-  const state = a.state || "";
-  return [street, city, state].filter(Boolean).join(", ") || r.display_name;
+const GEO_ERRORS: Record<number, string> = {
+  1: "El permiso de ubicación está bloqueado. En iPhone: Ajustes › Privacidad › Localización › tu navegador › \"Al usar la app\". En Android: tocá el candado de la barra de direcciones › Permisos › Ubicación. También podés marcar el taller tocando el mapa.",
+  2: "El celular no pudo determinar la ubicación (¿GPS apagado?). Activalo o marcá el taller tocando el mapa.",
+  3: "La ubicación tardó demasiado. Probá de nuevo cerca de una ventana o marcá el taller tocando el mapa.",
+};
+
+function getPosition(highAccuracy: boolean, timeout: number) {
+  return new Promise<GeolocationPosition>((resolve, reject) =>
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: highAccuracy, timeout, maximumAge: 30_000 }),
+  );
 }
 
 /**
- * Dirección del taller ubicada en el mapa. Dos caminos:
- * - escribir la dirección y elegir el resultado correcto,
- * - o, estando en el taller, usar la ubicación del celular (lo más preciso).
- * Guarda dirección + coordenadas en inputs ocultos (address, lat, lng).
+ * Ubicación del taller en tres pasos que se complementan:
+ * 1) buscar la dirección, 2) usar el GPS del celular estando en el taller,
+ * 3) ajustar tocando el mapa o arrastrando el pin. Lo que vale es el pin.
  */
 export function AddressPicker({ initial }: { initial?: Place | null }) {
-  const [query, setQuery] = useState(initial?.address ?? "");
-  const [place, setPlace] = useState<Place | null>(initial ?? null);
-  const [results, setResults] = useState<Result[]>([]);
+  const [address, setAddress] = useState(initial?.address ?? "");
+  const [point, setPoint] = useState<Point | null>(initial ? { lat: initial.lat, lng: initial.lng } : null);
+  const [results, setResults] = useState<GeoPlace[]>([]);
   const [status, setStatus] = useState<"idle" | "searching" | "locating">("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
+
+  async function fillAddressFrom(p: Point) {
+    const r = await geo(`lat=${p.lat}&lng=${p.lng}`);
+    if (r.ok && r.place?.address) setAddress((current) => current || r.place!.address);
+  }
 
   async function search() {
-    if (query.trim().length < 5) {
-      setMessage("Escribí calle, número y localidad.");
+    if (address.trim().length < 5) {
+      setMessage({ tone: "error", text: "Escribí calle, número y localidad." });
       return;
     }
     setStatus("searching");
     setMessage(null);
     setResults([]);
-    try {
-      const url = `${NOMINATIM}/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=ar&accept-language=es&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      const data = (await res.json()) as (Result & { address?: Record<string, string> })[];
-      if (!data.length) setMessage("No encontramos esa dirección. Probá agregando la localidad, o usá tu ubicación actual.");
-      else if (data.length === 1) choose(data[0]);
-      else setResults(data);
-    } catch {
-      setMessage("No pudimos buscar la dirección. Revisá la conexión.");
-    } finally {
-      setStatus("idle");
+    const r = await geo(`q=${encodeURIComponent(address)}`);
+    setStatus("idle");
+    if (!r.ok) return setMessage({ tone: "error", text: r.error ?? "No pudimos buscar la dirección." });
+    const found = r.results ?? [];
+    if (!found.length) {
+      return setMessage({ tone: "error", text: "No encontramos esa dirección. Probá agregando la localidad, usá tu ubicación o tocá el mapa." });
     }
+    if (found.length === 1) choose(found[0]);
+    else setResults(found);
   }
 
-  function choose(r: Result & { address?: Record<string, string> }) {
-    const p = { address: shortAddress(r), lat: Number(r.lat), lng: Number(r.lon) };
-    setPlace(p);
-    setQuery(p.address);
+  function choose(r: GeoPlace) {
+    setPoint({ lat: r.lat, lng: r.lng });
+    setAddress(r.address);
     setResults([]);
+    setMessage({ tone: "info", text: "Revisá el pin. Si no está justo sobre el taller, tocá el mapa o arrastralo." });
   }
 
-  function locate() {
-    if (!navigator.geolocation) {
-      setMessage("Este celular no permite usar la ubicación.");
-      return;
+  async function locate() {
+    setMessage(null);
+    if (!window.isSecureContext || !navigator.geolocation) {
+      return setMessage({ tone: "error", text: "Este navegador no permite usar la ubicación. Marcá el taller tocando el mapa." });
     }
     setStatus("locating");
-    setMessage(null);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-        let address = query;
-        try {
-          const res = await fetch(`${NOMINATIM}/reverse?format=jsonv2&addressdetails=1&accept-language=es&lat=${lat}&lon=${lng}`);
-          const data = await res.json();
-          address = shortAddress(data);
-        } catch {}
-        setPlace({ address, lat, lng });
-        setQuery(address);
-        setResults([]);
+    let pos: GeolocationPosition;
+    try {
+      pos = await getPosition(true, 12_000);
+    } catch (e) {
+      const code = (e as GeolocationPositionError)?.code;
+      if (code === 1) {
         setStatus("idle");
-        if (accuracy > 100) setMessage(`La ubicación tiene un margen de ${Math.round(accuracy)} m. Si el punto no cae en el taller, buscá la dirección.`);
-      },
-      () => {
+        return setMessage({ tone: "error", text: GEO_ERRORS[1] });
+      }
+      try {
+        pos = await getPosition(false, 15_000); // reintento con menos precisión (redes WiFi/celulares)
+      } catch (e2) {
         setStatus("idle");
-        setMessage("No pudimos obtener tu ubicación. Revisá el permiso del navegador o buscá la dirección.");
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+        return setMessage({ tone: "error", text: GEO_ERRORS[(e2 as GeolocationPositionError)?.code] ?? GEO_ERRORS[2] });
+      }
+    }
+    const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    setPoint(p);
+    setResults([]);
+    setStatus("idle");
+    setMessage({
+      tone: "info",
+      text:
+        pos.coords.accuracy > 60
+          ? `Ubicación aproximada (±${Math.round(pos.coords.accuracy)} m). Ajustá el pin tocando el mapa sobre el taller.`
+          : "Revisá el pin. Si no está justo sobre el taller, tocá el mapa o arrastralo.",
+    });
+    fillAddressFrom(p);
   }
-
-  const d = 0.0025;
-  const mapSrc = place
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${place.lng - d * 1.6},${place.lat - d},${place.lng + d * 1.6},${place.lat + d}&layer=mapnik&marker=${place.lat},${place.lng}`
-    : null;
 
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor="addressQuery" className="label">Dirección del taller</label>
+        <label htmlFor="address" className="label">Dirección del taller</label>
         <div className="flex gap-2">
           <input
-            id="addressQuery"
-            value={query}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setQuery(e.target.value);
-              setPlace(null);
-            }}
+            id="address"
+            name="address"
+            value={address}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddress(e.target.value)}
             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -114,6 +131,7 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
             }}
             placeholder="San Martín 1234, Godoy Cruz"
             autoComplete="street-address"
+            required
             className="field"
           />
           <button type="button" onClick={search} disabled={status !== "idle"} className="h-[52px] shrink-0 rounded-xl bg-ink px-4 text-sm font-semibold text-white">
@@ -131,32 +149,33 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
         <ul className="card divide-y divide-[#EDEBE5]">
           <li className="px-4 py-2 text-xs font-semibold text-muted">¿Cuál es?</li>
           {results.map((r) => (
-            <li key={`${r.lat},${r.lon}`}>
+            <li key={`${r.lat},${r.lng}`}>
               <button type="button" onClick={() => choose(r)} className="w-full px-4 py-3 text-left text-sm">
-                {r.display_name}
+                {r.label}
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      {message && <p className="text-xs text-red-700">{message}</p>}
-
-      {place && mapSrc && (
-        <div className="space-y-2">
-          <div className="overflow-hidden rounded-2xl border border-line">
-            <iframe title="Ubicación del taller" src={mapSrc} className="h-52 w-full" loading="lazy" />
-          </div>
-          <p className="flex items-start gap-2 text-xs text-ok">
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0"><path d="M20 6 9 17l-5-5" /></svg>
-            <span>Revisá que el marcador caiga sobre el taller. Si no, buscá de nuevo o usá tu ubicación estando ahí.</span>
-          </p>
-        </div>
+      {message && (
+        <p className={`rounded-xl px-3.5 py-2.5 text-xs ${message.tone === "error" ? "bg-red-50 text-red-800" : "bg-paper text-muted"}`}>{message.text}</p>
       )}
 
-      <input type="hidden" name="address" value={place?.address ?? ""} />
-      <input type="hidden" name="lat" value={place ? String(place.lat) : ""} />
-      <input type="hidden" name="lng" value={place ? String(place.lng) : ""} />
+      <MapPicker
+        point={point}
+        onPick={(p: Point) => {
+          setPoint(p);
+          setMessage({ tone: "info", text: "Pin ubicado. Podés seguir ajustándolo." });
+          fillAddressFrom(p);
+        }}
+      />
+      <p className={`text-xs ${point ? "font-semibold text-ok" : "text-muted"}`}>
+        {point ? `Taller marcado en el mapa (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})` : "Tocá el mapa sobre el taller para marcarlo."}
+      </p>
+
+      <input type="hidden" name="lat" value={point ? String(point.lat) : ""} />
+      <input type="hidden" name="lng" value={point ? String(point.lng) : ""} />
     </div>
   );
 }

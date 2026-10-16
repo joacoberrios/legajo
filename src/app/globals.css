@@ -38,3 +38,25 @@ body {
 .card {
   @apply rounded-2xl border border-line bg-white;
 }
+
+/* Pin del mapa (Leaflet divIcon): gota naranja con punto grafito */
+.legajo-pin {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--color-accent);
+  border: 3px solid #fff;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.legajo-pin::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+.leaflet-container {
+  font-family: inherit;
+}
