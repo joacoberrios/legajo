@@ -11,8 +11,9 @@ const MENDOZA: Point = { lat: -32.8895, lng: -68.8458 };
 const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 const TILES = [
   {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    options: { maxZoom: 20, subdomains: "abcd", attribution: `${OSM} &copy; <a href="https://carto.com/attributions">CARTO</a>` },
+    // Esri: gratis y sin clave para este uso.
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    options: { maxZoom: 19, attribution: "Tiles &copy; Esri" },
   },
   { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", options: { maxZoom: 19, attribution: OSM } },
 ];
