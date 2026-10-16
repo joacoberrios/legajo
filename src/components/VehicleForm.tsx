@@ -4,7 +4,8 @@ import { useActionState, useState } from "react";
 import { completeVehicleAction, createVehicleAction } from "@/app/actions/vehicles";
 import { CameraIcon, CardIcon, ConfidenceNote, PhotoButton } from "@/components/PhotoRead";
 import { cleanVin, formatPlate } from "@/lib/plate";
-import type { Confidence, ReadResult, VehiclePrefill } from "@/lib/vision-types";
+import { samePlateLoose } from "@/lib/ocr-parse";
+import type { CardRead, Confidence, ReadResult, VehiclePrefill } from "@/lib/vision-types";
 
 type Fields = { make: string; model: string; year: string; bodyType: string; vin: string; engineNumber: string };
 
@@ -22,12 +23,11 @@ function useVehicleFields(initial: VehiclePrefill | null, plate: string) {
   );
   const set = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
 
-  function fromCard(r: ReadResult) {
-    if (!r.ok) return setNote({ kind: "error", text: r.error });
-    if (r.kind !== "card") return;
-    if (r.plate && r.plate !== plate) {
-      return setNote({ kind: "error", text: `Esa tarjeta verde es de la patente ${formatPlate(r.plate)}, no de ${formatPlate(plate)}.` });
-    }
+  // Tarjeta leída cuya patente no coincide: se guarda por si el taller confirma que es la misma.
+  const [pendingCard, setPendingCard] = useState<CardRead | null>(null);
+
+  function applyCard(r: CardRead) {
+    setPendingCard(null);
     setF((p) => ({
       make: r.make || p.make,
       model: r.model || p.model,
@@ -43,6 +43,17 @@ function useVehicleFields(initial: VehiclePrefill | null, plate: string) {
     });
   }
 
+  function fromCard(r: ReadResult) {
+    setPendingCard(null);
+    if (!r.ok) return setNote({ kind: "error", text: r.error });
+    if (r.kind !== "card") return;
+    if (r.plate && !samePlateLoose(r.plate, plate)) {
+      setPendingCard(r);
+      return setNote({ kind: "error", text: `En la tarjeta leímos la patente ${formatPlate(r.plate)}, y este auto es ${formatPlate(plate)}.` });
+    }
+    applyCard(r);
+  }
+
   function fromVin(r: ReadResult) {
     if (!r.ok) return setNote({ kind: "error", text: r.error });
     if (r.kind !== "vin") return;
@@ -50,12 +61,23 @@ function useVehicleFields(initial: VehiclePrefill | null, plate: string) {
     setNote({ kind: "ok", text: `Chasis leído: ${r.vin}. Comparalo con el original.`, confidence: r.confidence });
   }
 
-  return { f, set, note, fromCard, fromVin };
+  const confirmCard = pendingCard ? () => applyCard(pendingCard) : null;
+  return { f, set, note, fromCard, fromVin, confirmCard };
 }
 
-function Note({ note }: { note: ReturnType<typeof useVehicleFields>["note"] }) {
+function Note({ note, onConfirm }: { note: ReturnType<typeof useVehicleFields>["note"]; onConfirm?: (() => void) | null }) {
   if (!note) return null;
-  if (note.kind === "error") return <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">{note.text}</p>;
+  if (note.kind === "error")
+    return (
+      <div role="alert" className="space-y-2.5 rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">
+        <p>{note.text}</p>
+        {onConfirm && (
+          <button type="button" onClick={onConfirm} className="btn-secondary w-full text-sm">
+            Es la misma patente, usar los datos
+          </button>
+        )}
+      </div>
+    );
   return (
     <div className="space-y-1.5">
       <p className={`rounded-xl px-3.5 py-3 text-sm ${note.kind === "warn" ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}>{note.text}</p>
@@ -101,13 +123,13 @@ function VinField({ value, onChange, onPhoto }: { value: string; onChange: (e: R
 /** Alta del auto: a mano, con la tarjeta verde o con foto del chasis. */
 export function VehicleForm({ plate, prefill }: { plate: string; prefill: VehiclePrefill | null }) {
   const [state, action, pending] = useActionState(createVehicleAction, undefined);
-  const { f, set, note, fromCard, fromVin } = useVehicleFields(prefill, plate);
+  const { f, set, note, fromCard, fromVin, confirmCard } = useVehicleFields(prefill, plate);
 
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="plate" value={plate} />
       <PhotoButton kind="card" label="Completar con foto de la tarjeta verde" busyLabel="Leyendo tarjeta verde…" onResult={fromCard} icon={CardIcon} className="btn-primary text-sm" />
-      <Note note={note} />
+      <Note note={note} onConfirm={confirmCard} />
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -156,7 +178,7 @@ export function CompleteVehicleForm({
   prefill: VehiclePrefill | null;
 }) {
   const [state, action, pending] = useActionState(completeVehicleAction, undefined);
-  const { f, set, note, fromCard, fromVin } = useVehicleFields(prefill, plate);
+  const { f, set, note, fromCard, fromVin, confirmCard } = useVehicleFields(prefill, plate);
 
   return (
     <form action={action} className="card space-y-3.5 px-4 py-4">
@@ -166,7 +188,7 @@ export function CompleteVehicleForm({
         <p className="text-xs text-muted">El número de chasis identifica al auto aunque cambie de patente. Se carga una sola vez.</p>
       </div>
       <PhotoButton kind="card" label="Leer de la tarjeta verde" busyLabel="Leyendo tarjeta verde…" onResult={fromCard} icon={CardIcon} className="btn-secondary text-sm" />
-      <Note note={note} />
+      <Note note={note} onConfirm={confirmCard} />
       {missingVin && <VinField value={f.vin} onChange={set("vin")} onPhoto={fromVin} />}
       {missingEngine && (
         <div>

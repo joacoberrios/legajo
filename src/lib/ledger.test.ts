@@ -178,3 +178,33 @@ DOCUMENTO: 12345678`;
   assert.equal(c.engineNumber, "1GD4567890");
   assert.ok(!JSON.stringify(c).includes("PEREZ"));
 });
+
+import { samePlateLoose } from "./ocr-parse.ts";
+
+test("OCR: tarjeta verde real (formato DNRPA) con ruido de lectura", () => {
+  const text = `REPUBLICA ARGENTINA
+CEDULA DE IDENTIFICACION DE VEHICULOS
+0 DOMINIO: HG0315 Original
+2 MARCA: RENAULT
+9 MODELO: CLIO 5 PTAS. PACK
+4 TIPO: SEDAN 5 PTAS
+USO: PRIVADO
+8 CHASIS: 8A1BB270F9L106375
+MOTOR: D4FG728Q052177
+VENCE: 11/07/2009`;
+  const c = parseVehicleCard(text);
+  assert.equal(c.plate, "HGO315");
+  assert.equal(c.make, "RENAULT");
+  assert.equal(c.model, "CLIO 5 PTAS. PACK");
+  assert.equal(c.bodyType, "SEDAN 5 PTAS");
+  assert.equal(c.vin, "8A1BB270F9L106375");
+  assert.equal(c.engineNumber, "D4FG728Q052177");
+});
+
+test("OCR: la patente no se arma con la palabra de al lado", () => {
+  assert.equal(plateCandidates("HG0315 ORIGINAL")[0].plate, "HGO315");
+  assert.equal(plateCandidates("AE 482 KD")[0].plate, "AE482KD");
+  assert.ok(samePlateLoose("HGO315", "HG0315"));
+  assert.ok(!samePlateLoose("HGO315", "HGO316"));
+  assert.ok(!samePlateLoose("HGO315", "AE482KD"));
+});

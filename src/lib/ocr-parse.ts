@@ -29,30 +29,60 @@ export function fitPlate(raw: string, pattern: string): { plate: string; fixes: 
   return { plate: out, fixes };
 }
 
-/** Candidatos de patente en un texto de OCR, ordenados del más probable al menos. */
+/**
+ * Candidatos de patente en un texto de OCR, del más probable al menos.
+ * Primero prueba palabras completas (o 2-3 palabras seguidas, "AE 482 KD"); recién después ventanas
+ * que cortan palabras, con penalización: así "HG0315 ORIGINAL" da HGO315 y no "HG031SO".
+ */
 export function plateCandidates(text: string): { plate: string; fixes: number }[] {
-  const found = new Map<string, number>();
+  const best = new Map<string, { fixes: number; score: number }>();
+  const consider = (raw: string, penalty: number) => {
+    for (const pattern of PATTERNS) {
+      const fit = fitPlate(raw, pattern);
+      if (!fit) continue;
+      const score = fit.fixes * 2 + penalty;
+      const prev = best.get(fit.plate);
+      if (!prev || score < prev.score) best.set(fit.plate, { fixes: fit.fixes, score });
+    }
+  };
+
   const lines = text
     .toUpperCase()
     .replace(/REP[UÚ]BLICA|ARGENTINA|MERCOSUR/g, " ")
-    .split(/\n+/)
-    .map((l) => l.replace(/[^A-Z0-9]/g, ""))
-    .filter((l) => l.length >= 6);
+    .split(/\n+/);
 
   for (const line of lines) {
-    for (const pattern of PATTERNS) {
-      const n = pattern.length;
-      for (let i = 0; i + n <= line.length; i++) {
-        const fit = fitPlate(line.slice(i, i + n), pattern);
-        if (!fit) continue;
-        // Penaliza ventanas que no son la línea entera (texto de más alrededor).
-        const score = fit.fixes + (line.length === n ? 0 : 1);
-        const prev = found.get(fit.plate);
-        if (prev === undefined || score < prev) found.set(fit.plate, score);
+    const words = line.split(/\s+/).map((w) => w.replace(/[^A-Z0-9]/g, "")).filter(Boolean);
+    // 1) Palabras completas y grupos de 2-3 palabras seguidas.
+    for (let i = 0; i < words.length; i++) {
+      let joined = "";
+      for (let j = i; j < Math.min(words.length, i + 3); j++) {
+        joined += words[j];
+        if (joined.length === 6 || joined.length === 7) consider(joined, j - i);
+        if (joined.length >= 7) break;
       }
     }
+    // 2) Ventanas que cortan palabras (el OCR pegó ruido): penalizadas.
+    const compact = words.join("");
+    for (const n of [6, 7]) {
+      for (let i = 0; i + n <= compact.length; i++) consider(compact.slice(i, i + n), 3);
+    }
   }
-  return [...found.entries()].sort((a, b) => a[1] - b[1]).map(([plate, fixes]) => ({ plate, fixes }));
+
+  return [...best.entries()]
+    .sort((a, b) => a[1].score - b[1].score || a[1].fixes - b[1].fixes)
+    .map(([plate, v]) => ({ plate, fixes: v.fixes }));
+}
+
+/** Dos patentes que solo difieren en confusiones de lectura (O/0, I/1, B/8…) se consideran la misma. */
+export function samePlateLoose(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === b[i]) continue;
+    if (TO_DIGIT[a[i]] !== b[i] && TO_DIGIT[b[i]] !== a[i]) return false;
+  }
+  return true;
 }
 
 /**
@@ -102,7 +132,14 @@ export function parseVehicleCard(text: string): CardFields {
     .map((l) => l.replace(/\s+/g, " ").trim())
     .filter(Boolean);
 
-  const valueAfter = (label: RegExp): string => {
+  const valueAfter = (...labels: RegExp[]): string => {
+    for (const label of labels) {
+      const v = valueAfterOne(label);
+      if (v) return v;
+    }
+    return "";
+  };
+  const valueAfterOne = (label: RegExp): string => {
     for (let i = 0; i < lines.length; i++) {
       const m = lines[i].match(label);
       if (!m) continue;
@@ -114,14 +151,18 @@ export function parseVehicleCard(text: string): CardFields {
   };
   const firstCode = (s: string, min = 5) => s.split(/\s+/).find((t) => /^[A-Z0-9-]+$/.test(t) && t.replace(/-/g, "").length >= min) ?? "";
 
-  const plateText = valueAfter(/DOMINIO/);
+  const B = "(?:^|[^A-Z])"; // inicio de palabra (tolera ruido adelante)
+  const plateText = valueAfter(/D[O0]MINI[O0]/);
+  // La patente es la primera palabra (o grupo) después de "DOMINIO", no lo que sigue en la línea.
   const plate = plateCandidates(plateText)[0]?.plate ?? "";
-  const chassisText = valueAfter(/(N[°ºO.]?\s*(DE\s*)?CHASIS|CHASIS\s*N[°ºO.]?|^CHASIS)/);
+  const chassisText = valueAfter(/N[°ºO0.]?\s*(DE\s*)?CHASIS/, /CHASIS\s*N[°ºO0.]?\s*[:.]/, new RegExp(`${B}(?<!MARCA\\s)CHASIS`));
   const vin = vinCandidates(chassisText)[0] ?? vinCandidates(text)[0] ?? "";
-  const engineNumber = firstCode(valueAfter(/(N[°ºO.]?\s*(DE\s*)?MOTOR|MOTOR\s*N[°ºO.]?|^MOTOR)/)).replace(/-/g, "");
-  const make = valueAfter(/^MARCA(?!\s*(DEL\s*)?(MOTOR|CHASIS))/).split(/\s{2,}|MODELO/)[0].trim();
-  const model = valueAfter(/^MODELO(?!\s*ANO)/).split(/\s{2,}|TIPO/)[0].trim();
-  const bodyType = valueAfter(/^TIPO/).split(/\s{2,}|USO/)[0].trim();
+  const engineNumber = firstCode(
+    valueAfter(/N[°ºO0.]?\s*(DE\s*)?MOTOR/, /MOTOR\s*N[°ºO0.]?\s*[:.]/, new RegExp(`${B}(?<!MARCA\\s)MOTOR`)),
+  ).replace(/-/g, "");
+  const make = valueAfter(new RegExp(`${B}MARCA(?!\\s*(DEL\\s*)?(MOTOR|CHASIS))`)).split(/\s{2,}|MODELO/)[0].trim();
+  const model = valueAfter(new RegExp(`${B}MODELO(?!\\s*A[NÑ]O)`)).split(/\s{2,}|TIPO/)[0].trim();
+  const bodyType = valueAfter(new RegExp(`${B}TIPO`)).split(/\s{2,}|USO/)[0].trim();
   const yearMatch = (valueAfter(/(MODELO\s*ANO|ANO\s*(DE\s*)?(MODELO|FABRICACION)|^ANO)/) || "").match(/\b(19[5-9]\d|20\d\d)\b/);
   const year = yearMatch && Number(yearMatch[1]) <= new Date().getFullYear() + 1 ? yearMatch[1] : "";
 
