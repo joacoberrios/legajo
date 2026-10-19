@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { stickerCodeFromQr } from "@/lib/sticker-code";
 
 type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
 type DetectorCtor = new (opts: { formats: string[] }) => Detector;
@@ -37,11 +38,13 @@ async function createDetector(): Promise<DetectFn> {
  * Lee el QR del parabrisas con la cámara (nativo o jsQR según el navegador).
  * El QR contiene el link del informe (/i/<slug>); desde la app del taller abre el legajo completo.
  */
-export function QrScanner() {
+export function QrScanner({ onSticker, label = "Escanear QR del parabrisas" }: { onSticker?: (code: string) => void; label?: string } = {}) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const stickerCb = useRef(onSticker);
+  stickerCb.current = onSticker;
 
   useEffect(() => {
     if (!open) return;
@@ -67,9 +70,14 @@ export function QrScanner() {
         while (!stopped) {
           const value = await detect(video).catch(() => null);
           if (value) {
+            const sticker = stickerCodeFromQr(value);
             const slug = value.match(/\/i\/([A-Za-z0-9_-]+)/)?.[1];
             stopped = true;
-            if (slug) router.push(`/taller/s/${slug}`);
+            if (stickerCb.current) {
+              if (sticker) stickerCb.current(sticker);
+              else setMessage(slug ? "Ese QR ya es el de un auto. Escaneá un sticker nuevo, sin asignar." : "Ese QR no es de Legajo.");
+            } else if (sticker) router.push(`/q/${sticker}`);
+            else if (slug) router.push(`/taller/s/${slug}`);
             else setMessage("Ese QR no es de Legajo.");
             setOpen(false);
             break;
@@ -100,7 +108,7 @@ export function QrScanner() {
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
         </svg>
-        {open ? "Cancelar" : "Escanear QR del parabrisas"}
+        {open ? "Cancelar" : label}
       </button>
       {message && <p role="status" className="text-sm text-muted">{message}</p>}
     </div>

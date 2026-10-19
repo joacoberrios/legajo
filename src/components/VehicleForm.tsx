@@ -121,13 +121,14 @@ function VinField({ value, onChange, onPhoto }: { value: string; onChange: (e: R
 }
 
 /** Alta del auto: a mano, con la tarjeta verde o con foto del chasis. */
-export function VehicleForm({ plate, prefill }: { plate: string; prefill: VehiclePrefill | null }) {
+export function VehicleForm({ plate, prefill, sticker }: { plate: string; prefill: VehiclePrefill | null; sticker?: string | null }) {
   const [state, action, pending] = useActionState(createVehicleAction, undefined);
   const { f, set, note, fromCard, fromVin, confirmCard } = useVehicleFields(prefill, plate);
 
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="plate" value={plate} />
+      {sticker && <input type="hidden" name="sticker" value={sticker} />}
       <PhotoButton kind="card" label="Completar con foto de la tarjeta verde" busyLabel="Leyendo tarjeta verde…" onResult={fromCard} icon={CardIcon} className="btn-primary text-sm" />
       <Note note={note} onConfirm={confirmCard} />
 

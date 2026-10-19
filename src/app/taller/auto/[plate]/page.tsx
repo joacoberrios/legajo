@@ -7,6 +7,9 @@ import { decodePrefill } from "@/lib/vision-types";
 import { requireUser } from "@/lib/auth";
 import { findVehicleByPlate, listRecords } from "@/lib/data";
 import { ShareWithOwner } from "@/components/ShareWithOwner";
+import { LinkSticker } from "@/components/LinkSticker";
+import { normalizeStickerCode } from "@/lib/sticker-code";
+import { vehicleStickers } from "@/lib/stickers";
 import { analyze, RECORD_LABELS } from "@/lib/ledger";
 import { formatPlate, isValidPlate, normalizePlate } from "@/lib/plate";
 import { appUrl } from "@/lib/url";
@@ -16,12 +19,13 @@ export default async function VehiclePage({
   searchParams,
 }: {
   params: Promise<{ plate: string }>;
-  searchParams: Promise<{ cargado?: string; tv?: string }>;
+  searchParams: Promise<{ cargado?: string; tv?: string; sticker?: string; vinculado?: string; stickerError?: string }>;
 }) {
   const user = await requireUser();
   const plate = normalizePlate((await params).plate);
   if (!isValidPlate(plate)) notFound();
-  const { cargado, tv } = await searchParams;
+  const { cargado, tv, sticker, vinculado, stickerError } = await searchParams;
+  const stickerCode = sticker ? normalizeStickerCode(sticker) : null; // alta desde un sticker recién pegado
   const prefill = decodePrefill(tv); // datos leídos de la tarjeta verde
 
   const vehicle = await findVehicleByPlate(plate);
@@ -35,12 +39,17 @@ export default async function VehiclePage({
           <h1 className="text-xl font-bold">Este auto todavía no tiene legajo</h1>
           <p className="text-sm text-muted">Cargá sus datos una vez y queda disponible para todos los talleres.</p>
         </div>
-        <VehicleForm plate={plate} prefill={prefill} />
+        {stickerCode && (
+          <p className="rounded-xl bg-paper px-3.5 py-3 text-sm ring-1 ring-line">
+            Al guardar, el sticker <span className="font-mono font-semibold">{stickerCode.slice(0, 4)}-{stickerCode.slice(4)}</span> queda asignado a este auto.
+          </p>
+        )}
+        <VehicleForm plate={plate} prefill={prefill} sticker={stickerCode} />
       </main>
     );
   }
 
-  const records = await listRecords(vehicle.id);
+  const [records, stickers] = await Promise.all([listRecords(vehicle.id), vehicleStickers(vehicle.id)]);
   const a = analyze(records);
 
   // Mensaje para el dueño: el último trabajo que cargó este taller (o el último del auto) y el link al informe.
@@ -60,6 +69,17 @@ export default async function VehiclePage({
   return (
     <main className="space-y-5 px-5">
       <BackLink />
+
+      {vinculado && (
+        <p role="status" className="rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900">
+          Sticker vinculado. Desde ahora, escanearlo lleva al legajo de este auto.
+        </p>
+      )}
+      {stickerError && (
+        <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">
+          El auto quedó guardado, pero el sticker no se pudo asignar: {stickerError}
+        </p>
+      )}
 
       {cargado && (
         <p role="status" className="rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900">
@@ -93,6 +113,13 @@ export default async function VehiclePage({
         <Link href={`/i/${vehicle.publicSlug}`} className="btn-secondary text-sm">Informe público</Link>
         <Link href={`/taller/auto/${vehicle.plate}/qr`} className="btn-secondary text-sm">QR para el auto</Link>
       </div>
+
+      {user.workshopVerified && <LinkSticker plate={vehicle.plate} />}
+      {stickers.length > 0 && (
+        <p className="-mt-2 text-xs text-muted">
+          Sticker{stickers.length > 1 ? "s" : ""}: {stickers.map((s) => `${s.code.slice(0, 4)}-${s.code.slice(4)}${s.voidedAt ? " (anulado)" : ""}`).join(" · ")}
+        </p>
+      )}
 
       {(!vehicle.vin || !vehicle.engineNumber) && (
         <CompleteVehicleForm plate={vehicle.plate} missingVin={!vehicle.vin} missingEngine={!vehicle.engineNumber} prefill={prefill} />

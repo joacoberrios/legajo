@@ -24,7 +24,12 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     return { error: "Email o contraseña incorrectos." };
   }
   await startSession(user.id);
-  redirect("/taller");
+  redirect(safeNext(text(form, "next")));
+}
+
+/** Solo rutas internas: nunca redirigir a otro sitio con ?next=. */
+function safeNext(next: string) {
+  return /^\/(?!\/)[\w\-/?=&%.]*$/.test(next) ? next : "/taller";
 }
 
 type RegisterValues = { workshopName: string; cuit: string; phone: string; firstName: string; lastName: string; email: string };

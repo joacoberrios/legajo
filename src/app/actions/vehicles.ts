@@ -6,6 +6,8 @@ import { requireUser } from "@/lib/auth";
 import { appendRecord, completeVehicle, createVehicle, findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
 import { isRecordType } from "@/lib/ledger";
 import { isValidPlate, normalizePlate, normalizeVin } from "@/lib/plate";
+import { normalizeStickerCode } from "@/lib/sticker-code";
+import { assignSticker } from "@/lib/stickers";
 
 export type FormValues = {
   type: string;
@@ -47,13 +49,22 @@ export async function createVehicleAction(_: ActionState, form: FormData): Promi
   if (year !== null && (!Number.isInteger(year) || year < 1950 || year > new Date().getFullYear() + 1)) {
     return { error: "El año no es válido." };
   }
-  if (await findVehicleByPlate(plate)) redirect(`/taller/auto/${plate}`);
+  const sticker = normalizeStickerCode(text(form, "sticker"));
+  let vehicle = await findVehicleByPlate(plate);
 
-  try {
-    await createVehicle({ plate, vin, make, model, year, bodyType, engineNumber, workshopId: user.workshopId });
-  } catch (e) {
-    if (String(e).includes("vehicles_vin_key")) return { error: "Ese VIN ya está asociado a otra patente." };
-    throw e;
+  if (!vehicle) {
+    try {
+      vehicle = await createVehicle({ plate, vin, make, model, year, bodyType, engineNumber, workshopId: user.workshopId });
+    } catch (e) {
+      if (String(e).includes("vehicles_vin_key")) return { error: "Ese VIN ya está asociado a otra patente." };
+      throw e;
+    }
+  }
+  // Alta desde un sticker recién pegado: queda vinculado en el mismo paso.
+  if (sticker) {
+    const r = await assignSticker(sticker, vehicle, user);
+    if (!r.ok) redirect(`/taller/auto/${plate}?stickerError=${encodeURIComponent(r.error)}`);
+    redirect(`/taller/auto/${plate}?vinculado=1`);
   }
   redirect(`/taller/auto/${plate}`);
 }

@@ -21,6 +21,14 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 - **Registro de taller:** CUIT con guiones automáticos y dígito verificador, teléfono, dirección confirmada en el mapa (búsqueda o ubicación del celular), nombre, apellido y contraseña repetida.
 - **Panel de admin** (`/admin`): talleres activos en la semana contra la meta del piloto (10), métricas generales y verificación de talleres con un botón.
 
+## Stickers QR sin asignar
+
+Los stickers se imprimen en tandas desde **Admin › Stickers** (12 por hoja A4, cada uno con su QR y un código de 8 caracteres) y salen sin auto. El QR lleva a `/q/<código>`:
+
+- **Sin asignar:** el taller (logueado y verificado) elige la patente y confirma. Si el auto no tiene legajo, lo da de alta y el sticker queda asignado al guardar. También se puede vincular desde el legajo del auto con «Vincular sticker QR» (escaneando o tipeando el código).
+- **Asignado:** lleva al informe público, o al legajo completo si quien escanea es un taller.
+- La asignación es definitiva (lo impide un trigger en Postgres). Un sticker perdido o mal pegado lo anula un admin; un auto puede tener varios.
+
 ## Cómo garantiza que el historial no se adultere
 
 1. Un trigger de Postgres rechaza cualquier `UPDATE`, `DELETE` o `TRUNCATE` sobre `service_records` (`migrations/001_init.sql`).

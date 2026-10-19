@@ -217,3 +217,18 @@ test("direcciones tipeadas", () => {
   assert.deepEqual(splitAddress("Av. 25 de Mayo 980 Ciudad"), { street: "Av. 25 de Mayo", number: 980, place: "Ciudad", province: "" });
   assert.equal(splitAddress("godoy cruz"), null);
 });
+
+import { formatStickerCode, normalizeStickerCode, randomStickerCode, stickerCodeFromQr, STICKER_ALPHABET } from "./sticker-code.ts";
+
+test("stickers: códigos al azar, legibles y fáciles de tipear", () => {
+  const codes = new Set(Array.from({ length: 2000 }, randomStickerCode));
+  assert.equal(codes.size, 2000);
+  for (const c of codes) assert.ok([...c].every((ch) => STICKER_ALPHABET.includes(ch)) && c.length === 8);
+  assert.equal(normalizeStickerCode("abcd-efgh"), "ABCDEFGH");
+  assert.equal(normalizeStickerCode("ABCD EFG2"), "ABCDEFG2");
+  assert.equal(normalizeStickerCode("ABCD-EFG0"), null); // el 0 no existe en el alfabeto
+  assert.equal(formatStickerCode("ABCDEFGH"), "ABCD-EFGH");
+  assert.equal(stickerCodeFromQr("https://legajoapp.vercel.app/q/ABCD2345"), "ABCD2345");
+  assert.equal(stickerCodeFromQr("https://legajoapp.vercel.app/i/QwCEa6a0zkjx"), null);
+  assert.equal(stickerCodeFromQr("abcd-2345"), "ABCD2345");
+});

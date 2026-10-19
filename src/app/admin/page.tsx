@@ -81,9 +81,14 @@ export default async function AdminPage() {
           <div className="text-xl font-extrabold tracking-tight">Legajo · Admin</div>
           <div className="text-xs text-muted">Piloto Gran Mendoza</div>
         </div>
-        <Link href="/taller" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
-          Ir al taller
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/stickers" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+            Stickers
+          </Link>
+          <Link href="/taller" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+            Ir al taller
+          </Link>
+        </div>
       </div>
 
       <section className="space-y-3 rounded-3xl bg-ink p-5 text-paper">
