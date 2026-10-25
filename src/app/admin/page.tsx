@@ -27,10 +27,11 @@ type WorkshopRow = {
   users: number;
   records: number;
   recordsWeek: number;
+  viewsWeek: number;
   lastRecord: Date | null;
 };
 
-type Totals = { vehicles: number; records: number; backed: number; activeWeek: number; recordsWeek: number };
+type Totals = { vehicles: number; records: number; backed: number; activeWeek: number; recordsWeek: number; viewsWeek: number };
 
 const formatCuit = maskCuit;
 
@@ -52,7 +53,8 @@ export default async function AdminPage() {
       (SELECT count(*) FROM service_records)::int AS records,
       (SELECT count(DISTINCT record_id) FROM record_attachments WHERE kind IN ('odometer', 'document'))::int AS backed,
       (SELECT count(DISTINCT workshop_id) FROM service_records WHERE created_at > now() - interval '7 days')::int AS active_week,
-      (SELECT count(*) FROM service_records WHERE created_at > now() - interval '7 days')::int AS records_week
+      (SELECT count(*) FROM service_records WHERE created_at > now() - interval '7 days')::int AS records_week,
+      (SELECT count(*) FROM vehicle_views WHERE view_date > current_date - 7)::int AS views_week
   `;
 
   const workshops = await sql<WorkshopRow[]>`
@@ -61,6 +63,7 @@ export default async function AdminPage() {
       (SELECT count(*) FROM users u WHERE u.workshop_id = w.id)::int AS users,
       (SELECT count(*) FROM service_records r WHERE r.workshop_id = w.id)::int AS records,
       (SELECT count(*) FROM service_records r WHERE r.workshop_id = w.id AND r.created_at > now() - interval '7 days')::int AS records_week,
+      (SELECT count(*) FROM vehicle_views vv WHERE vv.workshop_id = w.id AND vv.view_date > current_date - 7)::int AS views_week,
       (SELECT max(r.created_at) FROM service_records r WHERE r.workshop_id = w.id) AS last_record
     FROM workshops w
     LEFT JOIN LATERAL (
@@ -113,6 +116,8 @@ export default async function AdminPage() {
         <Stat label="Registros totales" value={totals.records} />
         <Stat label="Autos con legajo" value={totals.vehicles} />
         <Stat label="Registros con respaldo" value={`${backedPct}%`} />
+        <Stat label="Consultas esta semana" value={totals.viewsWeek} />
+        <Stat label="Consultas por registro" value={totals.recordsWeek ? (totals.viewsWeek / totals.recordsWeek).toFixed(1) : "—"} />
       </dl>
 
       <section className="space-y-2.5">
@@ -172,7 +177,7 @@ function WorkshopCard({ w }: { w: WorkshopRow }) {
         </span>
       </div>
       <p className="text-xs text-muted">
-        {w.users} usuario{w.users === 1 ? "" : "s"} · {w.records} registros · {w.recordsWeek} esta semana · último {ago(w.lastRecord)}
+        {w.users} usuario{w.users === 1 ? "" : "s"} · {w.records} registros · {w.recordsWeek} esta semana · {w.viewsWeek} consultas · último {ago(w.lastRecord)}
       </p>
       <form action={setWorkshopVerified}>
         <input type="hidden" name="workshopId" value={w.id} />

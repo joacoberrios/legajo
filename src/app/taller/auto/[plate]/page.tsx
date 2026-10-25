@@ -10,6 +10,7 @@ import { ShareWithOwner } from "@/components/ShareWithOwner";
 import { LinkSticker } from "@/components/LinkSticker";
 import { normalizeStickerCode } from "@/lib/sticker-code";
 import { vehicleStickers } from "@/lib/stickers";
+import { logView, viewSource } from "@/lib/views";
 import { analyze, RECORD_LABELS } from "@/lib/ledger";
 import { formatPlate, isValidPlate, normalizePlate } from "@/lib/plate";
 import { appUrl } from "@/lib/url";
@@ -19,12 +20,12 @@ export default async function VehiclePage({
   searchParams,
 }: {
   params: Promise<{ plate: string }>;
-  searchParams: Promise<{ cargado?: string; tv?: string; sticker?: string; vinculado?: string; stickerError?: string }>;
+  searchParams: Promise<{ cargado?: string; tv?: string; sticker?: string; vinculado?: string; stickerError?: string; via?: string }>;
 }) {
   const user = await requireUser();
   const plate = normalizePlate((await params).plate);
   if (!isValidPlate(plate)) notFound();
-  const { cargado, tv, sticker, vinculado, stickerError } = await searchParams;
+  const { cargado, tv, sticker, vinculado, stickerError, via } = await searchParams;
   const stickerCode = sticker ? normalizeStickerCode(sticker) : null; // alta desde un sticker recién pegado
   const prefill = decodePrefill(tv); // datos leídos de la tarjeta verde
 
@@ -49,7 +50,7 @@ export default async function VehiclePage({
     );
   }
 
-  const [records, stickers] = await Promise.all([listRecords(vehicle.id), vehicleStickers(vehicle.id)]);
+  const [records, stickers] = await Promise.all([listRecords(vehicle.id), vehicleStickers(vehicle.id), logView(vehicle.id, user, viewSource(via))]);
   const a = analyze(records);
 
   // Mensaje para el dueño: el último trabajo que cargó este taller (o el último del auto) y el link al informe.
@@ -134,7 +135,10 @@ export default async function VehiclePage({
       )}
 
       <section className="space-y-3">
-        <h2 className="font-bold">Historial</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-bold">Historial</h2>
+          <span className="text-xs text-muted">Tu consulta queda registrada en el informe</span>
+        </div>
         <Timeline records={records} mode="taller" plate={vehicle.plate} workshopId={user.workshopId} />
       </section>
 

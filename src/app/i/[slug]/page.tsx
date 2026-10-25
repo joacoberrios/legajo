@@ -4,6 +4,7 @@ import { Plate } from "@/components/Plate";
 import { Timeline } from "@/components/Timeline";
 import { findVehicleBySlug, listRecords } from "@/lib/data";
 import { analyze } from "@/lib/ledger";
+import { recentViews } from "@/lib/views";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function PublicReport({ params }: { params: Promise<{ slug:
   const vehicle = await findVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const records = await listRecords(vehicle.id);
+  const [records, consults] = await Promise.all([listRecords(vehicle.id), recentViews(vehicle.id)]);
   const a = analyze(records);
   const today = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
   const ring = !a.chainOk ? "border-red-400" : (a.score ?? 0) >= 80 ? "border-green-400" : (a.score ?? 0) >= 60 ? "border-amber-400" : "border-[#B9B7B0]";
@@ -74,6 +75,27 @@ export default async function PublicReport({ params }: { params: Promise<{ slug:
         <section className="space-y-3">
           <h2 className="font-bold">Historial</h2>
           <Timeline records={records} mode="public" />
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-bold">Consultas de talleres</h2>
+          {consults.views.length === 0 ? (
+            <p className="text-sm text-muted">Ningún taller consultó este legajo todavía.</p>
+          ) : (
+            <>
+              <p className="text-sm text-muted">
+                {consults.workshops90d} taller{consults.workshops90d === 1 ? "" : "es"} lo consult{consults.workshops90d === 1 ? "ó" : "aron"} en los últimos 90 días. Cada consulta queda registrada.
+              </p>
+              <ul>
+                {consults.views.map((v) => (
+                  <li key={`${v.workshopName}-${v.viewDate}`} className="flex items-center justify-between gap-3 border-b border-[#EDEBE5] py-2.5 text-sm">
+                    <span className="font-medium">{v.workshopName}</span>
+                    <span className="font-mono text-xs text-muted">{v.viewDate.split("-").reverse().join("/")}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </section>
 
         <p className="pt-2 text-center text-xs text-muted">

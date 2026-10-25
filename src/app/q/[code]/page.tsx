@@ -29,7 +29,7 @@ export default async function StickerPage({
   const user = await currentUser();
 
   if (sticker.publicSlug && sticker.plate && !sticker.voidedAt) {
-    redirect(user ? `/taller/auto/${sticker.plate}` : `/i/${sticker.publicSlug}`);
+    redirect(user ? `/taller/auto/${sticker.plate}?via=sticker` : `/i/${sticker.publicSlug}`);
   }
 
   const { error, confirmar } = await searchParams;

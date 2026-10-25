@@ -6,5 +6,5 @@ export default async function ScanRedirect({ params }: { params: Promise<{ slug:
   const { slug } = await params;
   const vehicle = await findVehicleBySlug(slug);
   if (!vehicle) notFound();
-  redirect(`/taller/auto/${vehicle.plate}`);
+  redirect(`/taller/auto/${vehicle.plate}?via=qr`);
 }
