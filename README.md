@@ -21,6 +21,15 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 - **Registro de taller:** CUIT con guiones automáticos y dígito verificador, teléfono, dirección confirmada en el mapa (búsqueda o ubicación del celular), nombre, apellido y contraseña repetida.
 - **Panel de admin** (`/admin`): talleres activos en la semana contra la meta del piloto (10), métricas generales y verificación de talleres con un botón.
 
+## Cuentas de agencia
+
+Al registrarse se elige **taller** o **agencia de autos** (mismo alta con CUIT, teléfono y ubicación; el admin verifica a las dos).
+
+- La agencia consulta cualquier patente (escaneando la patente, la tarjeta verde o el QR) y ve el historial completo sin notas internas, con chasis y motor completos para compararlos con los papeles. No carga registros ni asigna stickers.
+- **Mis autos:** sigue los autos en tres etapas (evaluando, en stock, vendido) y ve cuántos registros nuevos les cargaron los talleres desde la última vez.
+- **Informe verificado** (`/v/<código>`): congela el historial en ese momento con fecha, código y la agencia como emisora; al abrirlo comprueba que esa parte no cambió y avisa si hay registros posteriores. Se comparte por WhatsApp o se guarda en PDF. Requiere agencia verificada.
+- Sus consultas quedan en el registro de consultas como las de cualquier taller.
+
 ## Stickers QR sin asignar
 
 Los stickers se imprimen en tandas desde **Admin › Stickers** (12 por hoja A4, cada uno con su QR y un código de 8 caracteres) y salen sin auto. El QR lleva a `/q/<código>`:

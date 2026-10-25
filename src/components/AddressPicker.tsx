@@ -23,11 +23,11 @@ async function geo(params: string): Promise<{ ok: boolean; results?: GeoPlace[];
   }
 }
 
-const GEO_ERRORS: Record<number, string> = {
-  1: "El permiso de ubicación está bloqueado. En iPhone: Ajustes › Privacidad › Localización › tu navegador › \"Al usar la app\". En Android: tocá el candado de la barra de direcciones › Permisos › Ubicación. También podés marcar el taller tocando el mapa.",
-  2: "El celular no pudo determinar la ubicación (¿GPS apagado?). Activalo o marcá el taller tocando el mapa.",
-  3: "La ubicación tardó demasiado. Probá de nuevo cerca de una ventana o marcá el taller tocando el mapa.",
-};
+const geoErrors = (place: string): Record<number, string> => ({
+  1: `El permiso de ubicación está bloqueado. En iPhone: Ajustes › Privacidad › Localización › tu navegador › "Al usar la app". En Android: tocá el candado de la barra de direcciones › Permisos › Ubicación. También podés marcar ${place} tocando el mapa.`,
+  2: `El celular no pudo determinar la ubicación (¿GPS apagado?). Activalo o marcá ${place} tocando el mapa.`,
+  3: `La ubicación tardó demasiado. Probá de nuevo cerca de una ventana o marcá ${place} tocando el mapa.`,
+});
 
 function getPosition(highAccuracy: boolean, timeout: number) {
   return new Promise<GeolocationPosition>((resolve, reject) =>
@@ -40,7 +40,9 @@ function getPosition(highAccuracy: boolean, timeout: number) {
  * 1) buscar la dirección, 2) usar el GPS del celular estando en el taller,
  * 3) ajustar tocando el mapa o arrastrando el pin. Lo que vale es el pin.
  */
-export function AddressPicker({ initial }: { initial?: Place | null }) {
+export function AddressPicker({ initial, kind = "taller" }: { initial?: Place | null; kind?: "taller" | "agencia" }) {
+  const place = kind === "agencia" ? "la agencia" : "el taller";
+  const GEO_ERRORS = geoErrors(place);
   const [address, setAddress] = useState(initial?.address ?? "");
   const [point, setPoint] = useState<Point | null>(initial ? { lat: initial.lat, lng: initial.lng } : null);
   const [results, setResults] = useState<GeoPlace[]>([]);
@@ -77,17 +79,17 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
     const number = typedNumber(address);
     if (!r.exact && number) {
       // El mapa encontró la calle pero no la altura: se conserva lo tipeado y se pide ubicar el pin.
-      setMessage({ tone: "error", text: `Encontramos la calle pero no el ${number}. El pin quedó en algún punto de la calle: arrastralo o tocá el mapa sobre el taller.` });
+      setMessage({ tone: "error", text: `Encontramos la calle pero no el ${number}. El pin quedó en algún punto de la calle: arrastralo o tocá el mapa sobre ${place}.` });
       return;
     }
     setAddress(r.address);
-    setMessage({ tone: "info", text: "Revisá el pin. Si no está justo sobre el taller, tocá el mapa o arrastralo." });
+    setMessage({ tone: "info", text: `Revisá el pin. Si no está justo sobre ${place}, tocá el mapa o arrastralo.` });
   }
 
   async function locate() {
     setMessage(null);
     if (!window.isSecureContext || !navigator.geolocation) {
-      return setMessage({ tone: "error", text: "Este navegador no permite usar la ubicación. Marcá el taller tocando el mapa." });
+      return setMessage({ tone: "error", text: `Este navegador no permite usar la ubicación. Marcá ${place} tocando el mapa.` });
     }
     setStatus("locating");
     let pos: GeolocationPosition;
@@ -114,8 +116,8 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
       tone: "info",
       text:
         pos.coords.accuracy > 60
-          ? `Ubicación aproximada (±${Math.round(pos.coords.accuracy)} m). Ajustá el pin tocando el mapa sobre el taller.`
-          : "Revisá el pin. Si no está justo sobre el taller, tocá el mapa o arrastralo.",
+          ? `Ubicación aproximada (±${Math.round(pos.coords.accuracy)} m). Ajustá el pin tocando el mapa sobre ${place}.`
+          : `Revisá el pin. Si no está justo sobre ${place}, tocá el mapa o arrastralo.`,
     });
     fillAddressFrom(p);
   }
@@ -123,7 +125,7 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor="address" className="label">Dirección del taller</label>
+        <label htmlFor="address" className="label">Dirección {kind === "agencia" ? "de la agencia" : "del taller"}</label>
         <div className="flex gap-2">
           <input
             id="address"
@@ -149,7 +151,7 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
 
       <button type="button" onClick={locate} disabled={status !== "idle"} className="btn-secondary text-sm">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="7" /></svg>
-        {status === "locating" ? "Buscando tu ubicación…" : "Estoy en el taller: usar mi ubicación"}
+        {status === "locating" ? "Buscando tu ubicación…" : `Estoy en ${place}: usar mi ubicación`}
       </button>
 
       {results.length > 0 && (
@@ -178,7 +180,7 @@ export function AddressPicker({ initial }: { initial?: Place | null }) {
         }}
       />
       <p className={`text-xs ${point ? "font-semibold text-ok" : "text-muted"}`}>
-        {point ? `Taller marcado en el mapa (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})` : "Tocá el mapa sobre el taller para marcarlo."}
+        {point ? `${kind === "agencia" ? "Agencia" : "Taller"} marcado en el mapa (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})` : `Tocá el mapa sobre ${place} para marcarlo.`}
       </p>
 
       <input type="hidden" name="lat" value={point ? String(point.lat) : ""} />

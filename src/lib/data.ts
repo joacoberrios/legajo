@@ -37,6 +37,11 @@ export async function findVehicleByPlate(plate: string): Promise<Vehicle | null>
   return rows[0] ?? null;
 }
 
+export async function findVehicleById(id: string): Promise<Vehicle | null> {
+  const rows = await db()<Vehicle[]>`SELECT * FROM vehicles WHERE id = ${id}`;
+  return rows[0] ?? null;
+}
+
 export async function findVehicleBySlug(slug: string): Promise<Vehicle | null> {
   const rows = await db()<Vehicle[]>`SELECT * FROM vehicles WHERE public_slug = ${slug}`;
   return rows[0] ?? null;

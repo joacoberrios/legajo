@@ -16,7 +16,7 @@ export default async function Home() {
       </div>
       <div className="space-y-3">
         <Link href="/registro" className="btn-primary">
-          Registrar mi taller
+          Crear cuenta: taller o agencia
         </Link>
         <Link href="/login" className="btn-secondary">
           Ya tengo cuenta

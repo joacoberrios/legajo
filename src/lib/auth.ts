@@ -50,6 +50,7 @@ export type SessionUser = {
   workshopName: string;
   workshopVerified: boolean;
   workshopComplete: boolean; // tiene teléfono y ubicación en el mapa
+  workshopKind: "taller" | "agencia";
 };
 
 /** Usuario logueado, leído siempre de la base (nunca del formulario). */
@@ -61,7 +62,7 @@ export async function currentUser(): Promise<SessionUser | null> {
     if (typeof payload.uid !== "string") return null;
     const rows = await db()<SessionUser[]>`
       SELECT u.id, u.name, u.email, u.role, w.id AS workshop_id, w.name AS workshop_name, w.verified AS workshop_verified,
-             (w.phone IS NOT NULL AND w.lat IS NOT NULL) AS workshop_complete
+             (w.phone IS NOT NULL AND w.lat IS NOT NULL) AS workshop_complete, w.kind AS workshop_kind
       FROM users u JOIN workshops w ON w.id = u.workshop_id
       WHERE u.id = ${payload.uid}
     `;
@@ -85,6 +86,24 @@ export function isAdmin(user: SessionUser | null): boolean {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
   return admins.includes(user.email.toLowerCase());
+}
+
+/** Inicio de cada tipo de cuenta. */
+export function homeFor(user: Pick<SessionUser, "workshopKind">) {
+  return user.workshopKind === "agencia" ? "/agencia" : "/taller";
+}
+
+export async function requireAgency(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.workshopKind !== "agencia") redirect("/taller");
+  return user;
+}
+
+/** Pantallas de taller: una agencia que llega acá (por un QR, un link viejo) va a su equivalente. */
+export async function requireWorkshop(agencyPath = "/agencia"): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.workshopKind === "agencia") redirect(agencyPath);
+  return user;
 }
 
 export async function requireAdmin(): Promise<SessionUser> {

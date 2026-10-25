@@ -6,9 +6,9 @@ export default function RegisterPage() {
     <main className="space-y-8 px-5 py-10">
       <div>
         <Link href="/" className="text-2xl font-extrabold tracking-tight">Legajo</Link>
-        <h1 className="mt-6 text-2xl font-bold">Registrar taller</h1>
+        <h1 className="mt-6 text-2xl font-bold">Crear cuenta</h1>
         <p className="mt-2 text-sm text-muted">
-          Es gratis. Verificamos el CUIT antes de habilitar la carga de registros.
+          Para talleres y agencias de autos. Verificamos el CUIT antes de habilitar la carga de registros y los informes verificados.
         </p>
       </div>
       <RegisterForm />

@@ -32,11 +32,12 @@ function safeNext(next: string) {
   return /^\/(?!\/)[\w\-/?=&%.]*$/.test(next) ? next : "/taller";
 }
 
-type RegisterValues = { workshopName: string; cuit: string; phone: string; firstName: string; lastName: string; email: string };
+type RegisterValues = { kind: "taller" | "agencia"; workshopName: string; cuit: string; phone: string; firstName: string; lastName: string; email: string };
 export type RegisterState = { error?: string; values?: RegisterValues } | undefined;
 
 export async function register(_: RegisterState, form: FormData): Promise<RegisterState> {
   const values: RegisterValues = {
+    kind: text(form, "kind") === "agencia" ? "agencia" : "taller",
     workshopName: text(form, "workshopName"),
     cuit: text(form, "cuit"),
     phone: text(form, "phone"),
@@ -45,6 +46,8 @@ export async function register(_: RegisterState, form: FormData): Promise<Regist
     email: text(form, "email").toLowerCase(),
   };
   const fail = (error: string): RegisterState => ({ error, values });
+  const kind = values.kind;
+  const org = kind === "agencia" ? "de la agencia" : "del taller";
 
   const cuit = values.cuit.replace(/\D/g, "");
   const phone = nationalPhone(values.phone);
@@ -56,8 +59,8 @@ export async function register(_: RegisterState, form: FormData): Promise<Regist
 
   if (!values.workshopName || !values.firstName || !values.lastName || !values.email) return fail("Completá todos los campos.");
   if (!isValidCuit(cuit)) return fail("El CUIT no es válido. Revisá los números.");
-  if (!phone) return fail("El teléfono del taller no es válido: código de área y número.");
-  if (!address || !isArgentinePoint(lat, lng)) return fail("Ubicá el taller en el mapa: buscá la dirección o usá tu ubicación.");
+  if (!phone) return fail(`El teléfono ${org} no es válido: código de área y número.`);
+  if (!address || !isArgentinePoint(lat, lng)) return fail(`Ubicá ${kind === "agencia" ? "la agencia" : "el taller"} en el mapa: buscá la dirección o usá tu ubicación.`);
   if (!/^\S+@\S+\.\S+$/.test(values.email)) return fail("El email no es válido.");
   if (password.length < 8) return fail("La contraseña debe tener al menos 8 caracteres.");
   if (password !== confirm) return fail("Las contraseñas no coinciden.");
@@ -69,7 +72,7 @@ export async function register(_: RegisterState, form: FormData): Promise<Regist
       EXISTS (SELECT 1 FROM workshops WHERE cuit = ${cuit}) AS cuit_taken
   `;
   if (taken[0].emailTaken) return fail("Ya hay una cuenta con ese email.");
-  if (taken[0].cuitTaken) return fail("Ese CUIT ya está registrado. Pedile al dueño del taller que te sume.");
+  if (taken[0].cuitTaken) return fail(`Ese CUIT ya está registrado. Pedile al dueño ${org} que te sume.`);
 
   const verified = process.env.AUTO_VERIFY_WORKSHOPS === "true";
   const passwordHash = await hashPassword(password);
@@ -77,8 +80,8 @@ export async function register(_: RegisterState, form: FormData): Promise<Regist
 
   const userId = await sql.begin(async (tx) => {
     const [w] = await tx<{ id: string }[]>`
-      INSERT INTO workshops (name, cuit, phone, address, lat, lng, verified)
-      VALUES (${values.workshopName}, ${cuit}, ${phone}, ${address}, ${lat}, ${lng}, ${verified})
+      INSERT INTO workshops (name, cuit, phone, address, lat, lng, verified, kind)
+      VALUES (${values.workshopName}, ${cuit}, ${phone}, ${address}, ${lat}, ${lng}, ${verified}, ${kind})
       RETURNING id
     `;
     const [u] = await tx<{ id: string }[]>`
@@ -90,7 +93,7 @@ export async function register(_: RegisterState, form: FormData): Promise<Regist
   });
 
   await startSession(userId);
-  redirect("/taller");
+  redirect(kind === "agencia" ? "/agencia" : "/taller");
 }
 
 /** Coordenadas dentro de Argentina continental (evita un 0,0 o un punto mal tomado). */

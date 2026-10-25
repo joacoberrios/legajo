@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { Plate } from "@/components/Plate";
 import { PrintButton } from "@/components/PrintButton";
-import { requireUser } from "@/lib/auth";
+import { requireWorkshop } from "@/lib/auth";
 import { findVehicleByPlate } from "@/lib/data";
 import { normalizePlate } from "@/lib/plate";
 import { appUrl } from "@/lib/url";
 
 /** Sticker para el parabrisas: QR al informe público. */
 export default async function QrPage({ params }: { params: Promise<{ plate: string }> }) {
-  await requireUser();
+  await requireWorkshop();
   const plate = normalizePlate((await params).plate);
   const vehicle = await findVehicleByPlate(plate);
   if (!vehicle) notFound();

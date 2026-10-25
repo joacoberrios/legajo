@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Plate } from "@/components/Plate";
 import { RecordForm } from "@/components/RecordForm";
 import { formatDay } from "@/components/Timeline";
-import { requireUser } from "@/lib/auth";
+import { requireWorkshop } from "@/lib/auth";
 import { BLOB_ACCESS } from "@/lib/blob";
 import { findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
 import { RECORD_LABELS } from "@/lib/ledger";
@@ -16,8 +16,8 @@ export default async function NewRecordPage({
   params: Promise<{ plate: string }>;
   searchParams: Promise<{ corrige?: string }>;
 }) {
-  const user = await requireUser();
   const plate = normalizePlate((await params).plate);
+  const user = await requireWorkshop(`/agencia/auto/${plate}`);
   const { corrige } = await searchParams;
 
   const vehicle = await findVehicleByPlate(plate);

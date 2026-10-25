@@ -4,7 +4,7 @@ import { Plate } from "@/components/Plate";
 import { Timeline, formatKm } from "@/components/Timeline";
 import { CompleteVehicleForm, VehicleForm } from "@/components/VehicleForm";
 import { decodePrefill } from "@/lib/vision-types";
-import { requireUser } from "@/lib/auth";
+import { requireWorkshop } from "@/lib/auth";
 import { findVehicleByPlate, listRecords } from "@/lib/data";
 import { ShareWithOwner } from "@/components/ShareWithOwner";
 import { LinkSticker } from "@/components/LinkSticker";
@@ -22,10 +22,10 @@ export default async function VehiclePage({
   params: Promise<{ plate: string }>;
   searchParams: Promise<{ cargado?: string; tv?: string; sticker?: string; vinculado?: string; stickerError?: string; via?: string }>;
 }) {
-  const user = await requireUser();
   const plate = normalizePlate((await params).plate);
   if (!isValidPlate(plate)) notFound();
   const { cargado, tv, sticker, vinculado, stickerError, via } = await searchParams;
+  const user = await requireWorkshop(`/agencia/auto/${plate}${via ? `?via=${encodeURIComponent(via)}` : ""}`);
   const stickerCode = sticker ? normalizeStickerCode(sticker) : null; // alta desde un sticker recién pegado
   const prefill = decodePrefill(tv); // datos leídos de la tarjeta verde
 

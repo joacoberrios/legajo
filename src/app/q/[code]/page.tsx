@@ -48,6 +48,11 @@ export default async function StickerPage({
           <h1 className="text-2xl font-bold">Sticker anulado</h1>
           <p className="text-sm text-muted">El sticker <span className="font-mono">{pretty}</span> ya no se usa. Pedile al taller uno nuevo.</p>
         </section>
+      ) : user?.workshopKind === "agencia" ? (
+        <section className="space-y-2">
+          <h1 className="text-2xl font-bold">Sticker sin asignar</h1>
+          <p className="text-sm text-muted">El sticker <span className="font-mono">{pretty}</span> todavía no está vinculado a ningún auto. Lo asigna el taller que lo pega.</p>
+        </section>
       ) : !user ? (
         <section className="space-y-4">
           <h1 className="text-2xl font-bold">Sticker sin activar</h1>

@@ -13,6 +13,7 @@ const PILOT_GOAL = 10; // talleres activos por semana para pasar a la etapa de c
 type WorkshopRow = {
   id: string;
   name: string;
+  kind: "taller" | "agencia";
   cuit: string;
   city: string | null;
   phone: string | null;
@@ -58,7 +59,7 @@ export default async function AdminPage() {
   `;
 
   const workshops = await sql<WorkshopRow[]>`
-    SELECT w.id, w.name, w.cuit, w.city, w.phone, w.address, w.lat, w.lng, w.verified, w.created_at,
+    SELECT w.id, w.name, w.kind, w.cuit, w.city, w.phone, w.address, w.lat, w.lng, w.verified, w.created_at,
       owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email,
       (SELECT count(*) FROM users u WHERE u.workshop_id = w.id)::int AS users,
       (SELECT count(*) FROM service_records r WHERE r.workshop_id = w.id)::int AS records,
@@ -153,7 +154,7 @@ function WorkshopCard({ w }: { w: WorkshopRow }) {
     <article className="card space-y-2.5 px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-semibold">{w.name}</h3>
+          <h3 className="truncate font-semibold">{w.name}{w.kind === "agencia" && <span className="ml-2 rounded-full bg-ink px-2 py-0.5 align-middle text-[11px] font-semibold text-white">Agencia</span>}</h3>
           <p className="font-mono text-xs text-muted">CUIT {formatCuit(w.cuit)}</p>
           <p className="text-xs text-muted">{[w.ownerName, w.ownerEmail].filter(Boolean).join(" · ")}</p>
           <p className="text-xs">

@@ -4,12 +4,12 @@ import { Plate } from "@/components/Plate";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { QrScanner } from "@/components/QrScanner";
 import { VehicleScan } from "@/components/VehicleScan";
-import { requireUser } from "@/lib/auth";
+import { requireWorkshop } from "@/lib/auth";
 import { recentVehicles } from "@/lib/data";
 import { RECORD_LABELS } from "@/lib/ledger";
 
 export default async function TallerHome({ searchParams }: { searchParams: Promise<{ error?: string; q?: string }> }) {
-  const user = await requireUser();
+  const user = await requireWorkshop();
   const { error, q } = await searchParams;
   const recent = await recentVehicles(user.workshopId);
 

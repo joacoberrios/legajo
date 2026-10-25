@@ -26,6 +26,7 @@ export type AssignResult = { ok: true; plate: string } | { ok: false; error: str
 
 /** Asigna un sticker libre a un auto. Es definitivo: si ya tiene auto, no se cambia. */
 export async function assignSticker(code: string, vehicle: { id: string; plate: string }, user: SessionUser): Promise<AssignResult> {
+  if (user.workshopKind !== "taller") return { ok: false, error: "Los stickers los asigna el taller que los pega." };
   if (!user.workshopVerified) return { ok: false, error: "Podés asignar stickers cuando verifiquemos tu taller." };
   const sql = db();
   const updated = await sql<{ code: string }[]>`

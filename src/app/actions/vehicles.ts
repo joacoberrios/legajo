@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { verifyAttachments } from "@/lib/attachments";
-import { requireUser } from "@/lib/auth";
+import { homeFor, requireUser } from "@/lib/auth";
 import { appendRecord, completeVehicle, createVehicle, findVehicleByPlate, lastOdometer, listRecords } from "@/lib/data";
 import { isRecordType } from "@/lib/ledger";
 import { isValidPlate, normalizePlate, normalizeVin } from "@/lib/plate";
@@ -24,16 +24,18 @@ const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
 /** Buscador de la pantalla principal: lleva al legajo de la patente. */
 export async function searchPlate(form: FormData) {
-  await requireUser();
+  const user = await requireUser();
+  const home = homeFor(user);
   const plate = normalizePlate(text(form, "plate"));
-  if (!isValidPlate(plate)) redirect(`/taller?error=patente&q=${encodeURIComponent(text(form, "plate"))}`);
-  redirect(`/taller/auto/${plate}`);
+  if (!isValidPlate(plate)) redirect(`${home}?error=patente&q=${encodeURIComponent(text(form, "plate"))}`);
+  redirect(`${home}/auto/${plate}`);
 }
 
 const engine = (s: string) => s.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 30) || null;
 
 export async function createVehicleAction(_: ActionState, form: FormData): Promise<ActionState> {
   const user = await requireUser();
+  if (user.workshopKind !== "taller") return { error: "Los autos los da de alta el taller que los atiende." };
   const plate = normalizePlate(text(form, "plate"));
   const vin = normalizeVin(text(form, "vin"));
   const make = text(form, "make").slice(0, 60);
@@ -71,7 +73,8 @@ export async function createVehicleAction(_: ActionState, form: FormData): Promi
 
 /** Completa chasis y/o motor de un auto que no los tenía. Una vez cargados no se cambian desde la app. */
 export async function completeVehicleAction(_: ActionState, form: FormData): Promise<ActionState> {
-  await requireUser();
+  const user = await requireUser();
+  if (user.workshopKind !== "taller") return { error: "El chasis y el motor los carga el taller." };
   const plate = normalizePlate(text(form, "plate"));
   const vehicle = await findVehicleByPlate(plate);
   if (!vehicle) return { error: "No encontramos el auto." };
@@ -109,6 +112,7 @@ export async function createRecordAction(_: ActionState, form: FormData): Promis
 
 async function createRecord(form: FormData): Promise<ActionState> {
   const user = await requireUser();
+  if (user.workshopKind !== "taller") return { error: "Los registros los cargan los talleres." };
   if (!user.workshopVerified) return { error: "Tu taller todavía no está verificado. Podés consultar legajos, pero no cargar." };
 
   const plate = normalizePlate(text(form, "plate"));
