@@ -5,18 +5,18 @@ import { acceptInvite, createInvite } from "@/app/actions/team";
 import { NameFields, PasswordPair } from "@/components/FormFields";
 
 /** Botón del dueño: crea un link de invitación y lo deja listo para mandar por WhatsApp o copiar. */
-export function InviteCreator({ workshopName }: { workshopName: string }) {
+export function InviteCreator({ workshopName, agency = false }: { workshopName: string; agency?: boolean }) {
   const [state, action, pending] = useActionState(createInvite, undefined);
   const [copied, setCopied] = useState(false);
   const message = state?.link
-    ? `Te invito a cargar los trabajos de ${workshopName} en Legajo. Creá tu usuario acá (vence en 7 días): ${state.link}`
+    ? `Te invito a ${agency ? "sumarte al equipo de" : "cargar los trabajos de"} ${workshopName} en Legajo. Creá tu usuario acá (vence en 7 días): ${state.link}`
     : "";
 
   return (
     <div className="space-y-3">
       <form action={action}>
         <button type="submit" disabled={pending} className="btn-primary">
-          {pending ? "Creando link…" : state?.link ? "Crear otro link" : "Invitar a un mecánico"}
+          {pending ? "Creando link…" : state?.link ? "Crear otro link" : agency ? "Invitar a alguien del equipo" : "Invitar a un mecánico"}
         </button>
       </form>
       {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
@@ -55,7 +55,7 @@ export function InviteCreator({ workshopName }: { workshopName: string }) {
 }
 
 /** Formulario del mecánico invitado para crear su cuenta. */
-export function AcceptInviteForm({ token }: { token: string }) {
+export function AcceptInviteForm({ token, agency = false }: { token: string; agency?: boolean }) {
   const [state, action, pending] = useActionState(acceptInvite, undefined);
   return (
     <form action={action} className="space-y-4">
@@ -70,7 +70,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">{state.error}</p>
       )}
       <button type="submit" disabled={pending} className="btn-primary">
-        {pending ? "Creando cuenta…" : "Unirme al taller"}
+        {pending ? "Creando cuenta…" : agency ? "Unirme a la agencia" : "Unirme al taller"}
       </button>
     </form>
   );

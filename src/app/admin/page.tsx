@@ -87,6 +87,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <div className="text-xs text-muted">Piloto Gran Mendoza</div>
         </div>
         <div className="flex gap-2">
+          <Link href="/admin/actividad" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+            Actividad
+          </Link>
           <Link href="/admin/stickers" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
             Stickers
           </Link>
@@ -202,6 +205,9 @@ function WorkshopCard({ w, own }: { w: WorkshopRow; own: boolean }) {
           </button>
         )}
       </form>
+      <Link href={`/admin/actividad?cuenta=${w.id}&tab=${w.kind === "agencia" ? "consultas" : "registros"}`} className="inline-flex h-11 items-center text-sm font-semibold text-accent">
+        Ver actividad →
+      </Link>
       {w.ownerId && <ResetLinkButton userId={w.ownerId} name={(w.ownerName ?? "").split(" ")[0] || "dueño"} />}
 
       <form action={setWorkshopKind} className="flex items-center gap-2">

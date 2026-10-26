@@ -16,6 +16,7 @@ export type Invite = {
   id: string;
   workshopId: string;
   workshopName: string;
+  workshopKind: "taller" | "agencia";
   expiresAt: Date;
   usedAt: Date | null;
   revokedAt: Date | null;
@@ -32,7 +33,7 @@ export function inviteStatus(inv: Invite | null): InviteStatus {
 export async function findInvite(token: string): Promise<Invite | null> {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
   const rows = await db()<Invite[]>`
-    SELECT i.id, i.workshop_id, w.name AS workshop_name, i.expires_at, i.used_at, i.revoked_at
+    SELECT i.id, i.workshop_id, w.name AS workshop_name, w.kind AS workshop_kind, i.expires_at, i.used_at, i.revoked_at
     FROM invitations i JOIN workshops w ON w.id = i.workshop_id
     WHERE i.token_hash = ${hashToken(token)}
   `;

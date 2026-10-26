@@ -12,7 +12,7 @@ export type InviteState = { link?: string; error?: string } | undefined;
 /** Solo el dueño del taller crea links de invitación. El link se muestra una sola vez. */
 export async function createInvite(_: InviteState): Promise<InviteState> {
   const user = await requireUser();
-  if (user.role !== "owner") return { error: "Solo el dueño del taller puede invitar." };
+  if (user.role !== "owner") return { error: "Solo el dueño de la cuenta puede invitar." };
 
   const token = newToken();
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
@@ -59,7 +59,7 @@ export async function acceptInvite(_: AcceptState, form: FormData): Promise<Acce
       WHERE token_hash = ${hashToken(token)} FOR UPDATE
     `;
     if (!inv || inv.revokedAt || inv.usedAt || inv.expiresAt.getTime() < Date.now()) {
-      return { error: "Este link de invitación ya no es válido. Pedile uno nuevo al dueño del taller." };
+      return { error: "Este link de invitación ya no es válido. Pedile uno nuevo a quien te invitó." };
     }
     const taken = await tx`SELECT 1 FROM users WHERE email = ${email}`;
     if (taken.length) return { error: "Ya hay una cuenta con ese email. Ingresá con ella o usá otro email." };

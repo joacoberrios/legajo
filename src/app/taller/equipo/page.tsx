@@ -3,30 +3,33 @@ import { revokeInvite } from "@/app/actions/team";
 import { ResetLinkButton } from "@/components/PasswordForms";
 import { InviteCreator } from "@/components/TeamInvite";
 import { formatDay } from "@/components/Timeline";
-import { requireUser } from "@/lib/auth";
+import { homeFor, requireUser } from "@/lib/auth";
 import { teamOf } from "@/lib/invitations";
 
 export default async function TeamPage() {
   const user = await requireUser();
+  const agency = user.workshopKind === "agencia";
   const { members, pending } = await teamOf(user.workshopId);
   const isOwner = user.role === "owner";
 
   return (
     <main className="space-y-6 px-5">
-      <Link href="/taller" className="inline-flex h-11 items-center gap-1 text-sm font-semibold text-muted">
+      <Link href={homeFor(user)} className="inline-flex h-11 items-center gap-1 text-sm font-semibold text-muted">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
         Volver
       </Link>
 
       <Link href="/taller/datos" className="card flex min-h-12 items-center justify-between px-4 text-sm font-semibold">
-        Datos del taller: teléfono y ubicación
+        Datos {agency ? "de la agencia" : "del taller"}: teléfono y ubicación
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
       </Link>
 
       <div>
-        <h1 className="text-xl font-bold">Equipo del taller</h1>
+        <h1 className="text-xl font-bold">Equipo {agency ? "de la agencia" : "del taller"}</h1>
         <p className="mt-1 text-sm text-muted">
-          Cada registro queda firmado por la persona que lo cargó, así que cada mecánico usa su propio usuario.
+          {agency
+            ? "Cada persona usa su propio usuario: las consultas y los informes quedan a su nombre."
+            : "Cada registro queda firmado por la persona que lo cargó, así que cada mecánico usa su propio usuario."}
         </p>
       </div>
 
@@ -52,7 +55,7 @@ export default async function TeamPage() {
 
       {isOwner ? (
         <section className="space-y-3">
-          <InviteCreator workshopName={user.workshopName} />
+          <InviteCreator workshopName={user.workshopName} agency={agency} />
           {pending.length > 0 && (
             <div className="space-y-2">
               <h2 className="text-sm font-semibold">Invitaciones sin usar</h2>
@@ -75,7 +78,7 @@ export default async function TeamPage() {
           )}
         </section>
       ) : (
-        <p className="text-sm text-muted">Para sumar a alguien, pedile un link de invitación al dueño del taller.</p>
+        <p className="text-sm text-muted">Para sumar a alguien, pedile un link de invitación al dueño de la cuenta.</p>
       )}
     </main>
   );

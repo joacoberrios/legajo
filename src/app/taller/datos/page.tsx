@@ -31,7 +31,7 @@ export default async function WorkshopDataPage() {
         <div className="card space-y-1 px-4 py-3 text-sm">
           <p>Teléfono: {w.phone ? formatPhone(w.phone) : "sin cargar"}</p>
           <p>Dirección: {w.address ?? "sin cargar"}</p>
-          <p className="pt-1 text-xs text-muted">Solo el dueño del taller puede cambiar estos datos.</p>
+          <p className="pt-1 text-xs text-muted">Solo el dueño de la cuenta puede cambiar estos datos.</p>
         </div>
       )}
     </main>

@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Invitación · Legajo", robots: { in
 const MESSAGES = {
   used: "Este link ya se usó para crear una cuenta.",
   expired: "Este link venció.",
-  revoked: "El taller anuló este link.",
+  revoked: "Anularon este link.",
   missing: "Este link no existe.",
 } as const;
 
@@ -26,10 +26,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <div>
             <h1 className="text-2xl font-bold">Sumate a {invite.workshopName}</h1>
             <p className="mt-2 text-sm text-muted">
-              Creá tu usuario para cargar los trabajos del taller. Cada registro queda firmado con tu nombre.
+              {invite.workshopKind === "agencia"
+                ? "Creá tu usuario para revisar autos, seguir el stock y emitir informes verificados."
+                : "Creá tu usuario para cargar los trabajos del taller. Cada registro queda firmado con tu nombre."}
             </p>
           </div>
-          <AcceptInviteForm token={token} />
+          <AcceptInviteForm token={token} agency={invite.workshopKind === "agencia"} />
           <p className="text-sm text-muted">
             ¿Ya tenés cuenta? <Link href="/login" className="font-semibold text-accent">Ingresá</Link>
           </p>
@@ -37,7 +39,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       ) : (
         <div className="space-y-3">
           <h1 className="text-2xl font-bold">Invitación no válida</h1>
-          <p className="text-sm text-muted">{MESSAGES[status as keyof typeof MESSAGES]} Pedile un link nuevo al dueño del taller.</p>
+          <p className="text-sm text-muted">{MESSAGES[status as keyof typeof MESSAGES]} Pedile un link nuevo a quien te invitó.</p>
         </div>
       )}
     </main>
