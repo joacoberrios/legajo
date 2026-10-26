@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh font-sans antialiased">
-        <div className="mx-auto min-h-dvh max-w-md">{children}</div>
+        <div className="mx-auto min-h-dvh max-w-md has-[[data-wide]]:max-w-none">{children}</div>
       </body>
     </html>
   );

@@ -21,6 +21,15 @@ Este repo es el MVP: una web app pensada para usar desde el celular del taller.
 - **Registro de taller:** CUIT con guiones automáticos y dígito verificador, teléfono, dirección confirmada en el mapa (búsqueda o ubicación del celular), nombre, apellido y contraseña repetida.
 - **Panel de admin** (`/admin`): talleres activos en la semana contra la meta del piloto (10), métricas generales y verificación de talleres con un botón.
 
+## Panel de computadora (`/panel`)
+
+Vista ancha para la administración de talleres y agencias, con barra lateral. Se entra con el botón «Panel» de la app (en pantallas grandes).
+
+- **Resumen:** indicadores del mes y últimos registros (taller) o autos con novedades e informes (agencia).
+- **Vehículos / Mis autos:** tabla con búsqueda (patente, marca, modelo, VIN), filtros (marca, último trabajo o etapa, rango de fechas), orden por columna y paginado. Puntaje e integridad por auto.
+- **Ficha del auto:** todos los datos, puntaje y chequeos, historial en tabla con adjuntos, km fuera de secuencia marcados, agregar y corregir registros, completar VIN y motor.
+- **Nuevo auto**, **Registros** (con filtros, orden y exportación a CSV para Excel), **Informes** (agencias), **Equipo** y **Datos**.
+
 ## Cuentas de agencia
 
 Al registrarse se elige **taller** o **agencia de autos** (mismo alta con CUIT, teléfono y ubicación; el admin verifica a las dos).

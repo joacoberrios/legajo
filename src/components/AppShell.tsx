@@ -18,6 +18,9 @@ export function AppShell({ user, children }: { user: SessionUser; children?: Rea
               Admin
             </Link>
           )}
+          <Link href="/panel" className="hidden h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold md:flex">
+            Panel
+          </Link>
           <Link href="/taller/equipo" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
             Equipo
           </Link>

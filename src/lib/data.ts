@@ -49,6 +49,13 @@ export async function findVehicleBySlug(slug: string): Promise<Vehicle | null> {
 
 /** Registros del auto en orden de carga (el orden de la cadena de hashes). */
 export async function listRecords(vehicleId: string): Promise<RecordRow[]> {
+  return (await listRecordsMany([vehicleId])).get(vehicleId) ?? [];
+}
+
+/** Registros de varios autos en dos consultas (para listas con puntaje). */
+export async function listRecordsMany(vehicleIds: string[]): Promise<Map<string, RecordRow[]>> {
+  const out = new Map<string, RecordRow[]>();
+  if (vehicleIds.length === 0) return out;
   const sql = db();
   const records = await sql<Omit<RecordRow, "attachments">[]>`
     SELECT r.id, r.vehicle_id, r.workshop_id, r.user_id, r.type, r.odometer_km,
@@ -58,16 +65,16 @@ export async function listRecords(vehicleId: string): Promise<RecordRow[]> {
     FROM service_records r
     JOIN workshops w ON w.id = r.workshop_id
     JOIN users u ON u.id = r.user_id
-    WHERE r.vehicle_id = ${vehicleId}
+    WHERE r.vehicle_id = ANY(${vehicleIds}::uuid[])
     ORDER BY r.created_at ASC, r.id ASC
   `;
-  if (records.length === 0) return [];
+  if (records.length === 0) return out;
 
   const attachments = await sql<Attachment[]>`
     SELECT a.id, a.record_id, a.kind, a.position, a.url, a.content_type, a.size_bytes, a.sha256
     FROM record_attachments a
     JOIN service_records r ON r.id = a.record_id
-    WHERE r.vehicle_id = ${vehicleId}
+    WHERE r.vehicle_id = ANY(${vehicleIds}::uuid[])
     ORDER BY a.record_id, a.position
   `;
   const byRecord = new Map<string, Attachment[]>();
@@ -76,7 +83,12 @@ export async function listRecords(vehicleId: string): Promise<RecordRow[]> {
     list.push(a);
     byRecord.set(a.recordId, list);
   }
-  return records.map((r) => ({ ...r, attachments: byRecord.get(r.id) ?? [] }));
+  for (const r of records) {
+    const list = out.get(r.vehicleId) ?? [];
+    list.push({ ...r, attachments: byRecord.get(r.id) ?? [] });
+    out.set(r.vehicleId, list);
+  }
+  return out;
 }
 
 export type RecentVehicle = Vehicle & { lastActivity: Date; lastType: RecordType | null };

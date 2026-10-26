@@ -22,6 +22,9 @@ export type ActionState = { error?: string; needsConfirm?: boolean; lastKm?: num
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
+/** A dónde volver: la ficha del celular o la del panel de computadora. */
+const backTo = (form: FormData, plate: string) => (text(form, "base") === "panel" ? `/panel/vehiculos/${plate}` : `/taller/auto/${plate}`);
+
 /** Buscador de la pantalla principal: lleva al legajo de la patente. */
 export async function searchPlate(form: FormData) {
   const user = await requireUser();
@@ -65,10 +68,10 @@ export async function createVehicleAction(_: ActionState, form: FormData): Promi
   // Alta desde un sticker recién pegado: queda vinculado en el mismo paso.
   if (sticker) {
     const r = await assignSticker(sticker, vehicle, user);
-    if (!r.ok) redirect(`/taller/auto/${plate}?stickerError=${encodeURIComponent(r.error)}`);
-    redirect(`/taller/auto/${plate}?vinculado=1`);
+    if (!r.ok) redirect(`${backTo(form, plate)}?stickerError=${encodeURIComponent(r.error)}`);
+    redirect(`${backTo(form, plate)}?vinculado=1`);
   }
-  redirect(`/taller/auto/${plate}`);
+  redirect(backTo(form, plate));
 }
 
 /** Completa chasis y/o motor de un auto que no los tenía. Una vez cargados no se cambian desde la app. */
@@ -90,7 +93,7 @@ export async function completeVehicleAction(_: ActionState, form: FormData): Pro
     if (String(e).includes("vehicles_vin_key")) return { error: "Ese VIN ya está asociado a otra patente. Revisalo." };
     throw e;
   }
-  redirect(`/taller/auto/${plate}`);
+  redirect(backTo(form, plate));
 }
 
 /** Carga de un registro. Si hay error, devuelve lo tipeado para que el formulario no se vacíe. */
@@ -172,5 +175,5 @@ async function createRecord(form: FormData): Promise<ActionState> {
     correctsId,
     attachments: attachments.items,
   });
-  redirect(`/taller/auto/${plate}?cargado=1`);
+  redirect(`${backTo(form, plate)}?cargado=1`);
 }

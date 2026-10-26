@@ -26,6 +26,8 @@ export async function setStageAction(form: FormData) {
   await setFollow(user, vehicle.id, stage, records.length);
   revalidatePath(`/agencia/auto/${vehicle.plate}`);
   revalidatePath("/agencia");
+  revalidatePath(`/panel/vehiculos/${vehicle.plate}`);
+  revalidatePath("/panel/vehiculos");
 }
 
 export async function unfollowAction(form: FormData) {
@@ -34,13 +36,16 @@ export async function unfollowAction(form: FormData) {
   await unfollow(user.workshopId, vehicle.id);
   revalidatePath(`/agencia/auto/${vehicle.plate}`);
   revalidatePath("/agencia");
+  revalidatePath(`/panel/vehiculos/${vehicle.plate}`);
+  revalidatePath("/panel/vehiculos");
 }
 
 /** Emite el informe verificado y lo abre para compartirlo o imprimirlo. */
 export async function issueReportAction(form: FormData) {
   const user = await requireAgency();
   const vehicle = await vehicleFrom(form);
-  if (!user.workshopVerified) redirect(`/agencia/auto/${vehicle.plate}?error=verificacion`);
+  const back = text(form, "base") === "panel" ? `/panel/vehiculos/${vehicle.plate}` : `/agencia/auto/${vehicle.plate}`;
+  if (!user.workshopVerified) redirect(`${back}?error=verificacion`);
   const code = await issueReport(user, vehicle, await listRecords(vehicle.id));
   redirect(`/v/${code}?nuevo=1`);
 }

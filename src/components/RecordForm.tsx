@@ -11,12 +11,14 @@ export function RecordForm({
   correcting,
   workshopId,
   blobAccess,
+  base,
 }: {
   plate: string;
   lastKm: number | null;
   correcting: { id: string; label: string; km: number; performedOn: string; items: string[] } | null;
   workshopId: string;
   blobAccess: "public" | "private";
+  base?: "panel";
 }) {
   const [state, action, pending] = useActionState(createRecordAction, undefined);
   // Los adjuntos viven fuera del <form> con key: si hay un error de validación no se pierden.
@@ -30,6 +32,7 @@ export function RecordForm({
   return (
     <form key={v ? JSON.stringify(v) : "new"} action={action} className="space-y-6">
       <input type="hidden" name="plate" value={plate} />
+      {base && <input type="hidden" name="base" value={base} />}
       {correcting && <input type="hidden" name="correctsId" value={correcting.id} />}
 
       {correcting ? (

@@ -121,7 +121,7 @@ function VinField({ value, onChange, onPhoto }: { value: string; onChange: (e: R
 }
 
 /** Alta del auto: a mano, con la tarjeta verde o con foto del chasis. */
-export function VehicleForm({ plate, prefill, sticker }: { plate: string; prefill: VehiclePrefill | null; sticker?: string | null }) {
+export function VehicleForm({ plate, prefill, sticker, base }: { plate: string; prefill: VehiclePrefill | null; sticker?: string | null; base?: "panel" }) {
   const [state, action, pending] = useActionState(createVehicleAction, undefined);
   const { f, set, note, fromCard, fromVin, confirmCard } = useVehicleFields(prefill, plate);
 
@@ -129,6 +129,7 @@ export function VehicleForm({ plate, prefill, sticker }: { plate: string; prefil
     <form action={action} className="space-y-4">
       <input type="hidden" name="plate" value={plate} />
       {sticker && <input type="hidden" name="sticker" value={sticker} />}
+      {base && <input type="hidden" name="base" value={base} />}
       <PhotoButton kind="card" label="Completar con foto de la tarjeta verde" busyLabel="Leyendo tarjeta verde…" onResult={fromCard} icon={CardIcon} className="btn-primary text-sm" />
       <Note note={note} onConfirm={confirmCard} />
 
@@ -172,11 +173,13 @@ export function CompleteVehicleForm({
   missingVin,
   missingEngine,
   prefill,
+  base,
 }: {
   plate: string;
   missingVin: boolean;
   missingEngine: boolean;
   prefill: VehiclePrefill | null;
+  base?: "panel";
 }) {
   const [state, action, pending] = useActionState(completeVehicleAction, undefined);
   const { f, set, note, fromCard, fromVin, confirmCard } = useVehicleFields(prefill, plate);
@@ -184,6 +187,7 @@ export function CompleteVehicleForm({
   return (
     <form action={action} className="card space-y-3.5 px-4 py-4">
       <input type="hidden" name="plate" value={plate} />
+      {base && <input type="hidden" name="base" value={base} />}
       <div>
         <p className="text-sm font-semibold">Faltan datos del vehículo</p>
         <p className="text-xs text-muted">El número de chasis identifica al auto aunque cambie de patente. Se carga una sola vez.</p>
