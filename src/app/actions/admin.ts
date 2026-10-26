@@ -55,6 +55,8 @@ export async function deleteWorkshop(form: FormData) {
     await tx`DELETE FROM password_resets WHERE user_id IN (SELECT id FROM users WHERE workshop_id = ${id})`;
     await tx`UPDATE invitations SET used_by = NULL WHERE used_by IN (SELECT id FROM users WHERE workshop_id = ${id})`;
     await tx`DELETE FROM invitations WHERE workshop_id = ${id} OR created_by IN (SELECT id FROM users WHERE workshop_id = ${id})`;
+    await tx`UPDATE purchases SET workshop_id = NULL WHERE workshop_id = ${id}`;
+    await tx`DELETE FROM subscriptions WHERE workshop_id = ${id}`;
     await tx`DELETE FROM users WHERE workshop_id = ${id}`;
     await tx`DELETE FROM workshops WHERE id = ${id}`;
   });

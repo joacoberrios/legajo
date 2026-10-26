@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { uploadPresigned } from "@vercel/blob/client";
 import { ATTACHMENT_LABELS, ATTACHMENT_LIMITS, type AttachmentKind } from "@/lib/records-meta";
 
 export type PickedFile = {
@@ -21,18 +20,20 @@ const SLOTS: { kind: AttachmentKind; hint: string; accept: string; capture?: "en
   { kind: "document", hint: "Factura u orden (foto o PDF)", accept: "image/*,application/pdf", multiple: true },
 ];
 
-/** Achica fotos grandes del celular antes de subirlas (máx. 1920 px, JPEG). PDF y HEIC pasan tal cual. */
+const MAX_UPLOAD = 4 * 1024 * 1024; // tope del servidor
+
+/** Achica fotos del celular antes de subirlas (máx. 1600 px, JPEG). PDF y HEIC pasan tal cual. */
 async function prepare(file: File): Promise<File> {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
-    const scale = Math.min(1, 1920 / Math.max(bmp.width, bmp.height));
-    if (scale === 1 && file.size < 1_500_000) return file;
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 700_000) return file;
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(bmp.width * scale);
     canvas.height = Math.round(bmp.height * scale);
     canvas.getContext("2d")?.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.82));
     if (!blob) return file;
     return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
   } catch {
@@ -71,13 +72,13 @@ export function AttachmentPicker({
       ]);
       try {
         const file = await prepare(original);
-        if (file.size > ATTACHMENT_LIMITS.maxBytes) throw new Error("El archivo pesa más de 10 MB.");
-        const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const blob = await uploadPresigned(`adjuntos/${workshopId}/${plate}/${kind}.${ext}`, file, {
-          access,
-          handleUploadUrl: "/api/adjuntos",
-        });
-        patch(key, { status: "done", progress: 100, url: blob.url });
+        if (file.size > MAX_UPLOAD) throw new Error("El archivo pesa más de 4 MB.");
+        const body = new FormData();
+        body.append("file", file);
+        const res = await fetch("/api/adjuntos/subir", { method: "POST", body });
+        const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+        if (!res.ok || !json.url) throw new Error(json.error ?? "No se pudo subir.");
+        patch(key, { status: "done", progress: 100, url: json.url });
       } catch (e) {
         patch(key, { status: "error", error: e instanceof Error ? e.message : "No se pudo subir." });
       }

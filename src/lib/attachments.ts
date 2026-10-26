@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { blobPathname, readBlob } from "./blob";
 import type { VerifiedAttachment } from "./data";
 import { ATTACHMENT_LIMITS, isAttachmentKind } from "./records-meta";
+import { readFile, storedFileId } from "./stored-files";
 
 /** Carpeta del store donde cada taller puede subir. La ruta de subida la valida el servidor. */
 export function uploadPrefix(workshopId: string) {
@@ -32,28 +33,39 @@ export async function verifyAttachments(raw: string, workshopId: string): Promis
 
   const prefix = uploadPrefix(workshopId);
   const seen = new Set<string>();
-  const entries: { url: string; pathname: string; kind: VerifiedAttachment["kind"] }[] = [];
+  const entries: { url: string; pathname: string | null; fileId: string | null; kind: VerifiedAttachment["kind"] }[] = [];
   for (const item of parsed) {
     const kind = String((item as { kind?: unknown })?.kind ?? "");
     const url = String((item as { url?: unknown })?.url ?? "");
     if (!isAttachmentKind(kind)) return { ok: false, error: "Tipo de adjunto inválido." };
-    const pathname = blobPathname(url);
-    if (!pathname) return { ok: false, error: "Los adjuntos tienen que subirse desde Legajo." };
-    if (!pathname.startsWith(prefix)) return { ok: false, error: "Un adjunto no pertenece a tu taller." };
-    if (seen.has(pathname)) continue;
-    seen.add(pathname);
-    entries.push({ url, pathname, kind });
+    const fileId = storedFileId(url);
+    const pathname = fileId ? null : blobPathname(url);
+    if (!fileId && !pathname) return { ok: false, error: "Los adjuntos tienen que subirse desde Legajo." };
+    if (pathname && !pathname.startsWith(prefix)) return { ok: false, error: "Un adjunto no pertenece a tu taller." };
+    if (seen.has(url)) continue;
+    seen.add(url);
+    entries.push({ url, pathname, fileId, kind });
   }
 
   try {
     const items = await Promise.all(
-      entries.map(async ({ url, pathname, kind }): Promise<VerifiedAttachment> => {
-        // Se lee por pathname con las credenciales del proyecto: un archivo de otro store no se puede colar.
-        const file = await readBlob(pathname);
-        if (!file) throw new Error("missing");
-        const contentType = (file.contentType ?? "").split(";")[0].trim().toLowerCase();
+      entries.map(async ({ url, pathname, fileId, kind }): Promise<VerifiedAttachment> => {
+        let contentType: string;
+        let bytes: Uint8Array;
+        if (fileId) {
+          // Solo archivos que subió este mismo taller.
+          const file = await readFile(fileId, workshopId);
+          if (!file) throw new Error("missing");
+          contentType = file.contentType;
+          bytes = new Uint8Array(file.bytes);
+        } else {
+          // Se lee por pathname con las credenciales del proyecto: un archivo de otro store no se puede colar.
+          const file = await readBlob(pathname!);
+          if (!file) throw new Error("missing");
+          contentType = (file.contentType ?? "").split(";")[0].trim().toLowerCase();
+          bytes = new Uint8Array(await new Response(file.stream).arrayBuffer());
+        }
         if (!ATTACHMENT_LIMITS.types.includes(contentType)) throw new Error("type");
-        const bytes = new Uint8Array(await new Response(file.stream).arrayBuffer());
         if (bytes.byteLength === 0 || bytes.byteLength > ATTACHMENT_LIMITS.maxBytes) throw new Error("size");
         const sha256 = createHash("sha256").update(bytes).digest("hex");
         return { kind, url, contentType, sizeBytes: bytes.byteLength, sha256 };
