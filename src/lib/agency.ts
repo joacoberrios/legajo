@@ -74,17 +74,26 @@ export type VerifiedReport = {
   issuedAt: Date;
   agencyName: string;
   agencyPhone: string | null;
+  purchaseStatus: string | null;
 };
 
-/** Emite un informe verificado: congela cuántos registros había y el hash del último. */
-export async function issueReport(user: SessionUser, vehicle: Vehicle, records: LedgerRecord[]): Promise<string> {
+/**
+ * Emite un informe verificado: congela cuántos registros había y el hash del último.
+ * `issuer` null = lo emite Legajo (compra de un particular).
+ */
+export async function issueReport(
+  issuer: { workshopId: string; id: string } | null,
+  vehicle: Vehicle,
+  records: LedgerRecord[],
+  purchaseId: string | null = null,
+): Promise<string> {
   const a = analyze(records);
   const head = records.at(-1)?.hash ?? null;
   for (let i = 0; i < 5; i++) {
     const code = randomStickerCode();
     const rows = await db()`
-      INSERT INTO verified_reports (code, vehicle_id, workshop_id, user_id, record_count, head_hash, score)
-      VALUES (${code}, ${vehicle.id}, ${user.workshopId}, ${user.id}, ${records.length}, ${head}, ${a.chainOk ? a.score : 0})
+      INSERT INTO verified_reports (code, vehicle_id, workshop_id, user_id, record_count, head_hash, score, purchase_id)
+      VALUES (${code}, ${vehicle.id}, ${issuer?.workshopId ?? null}, ${issuer?.id ?? null}, ${records.length}, ${head}, ${a.chainOk ? a.score : 0}, ${purchaseId})
       ON CONFLICT (code) DO NOTHING RETURNING code
     `;
     if (rows.length) return code;
@@ -94,8 +103,9 @@ export async function issueReport(user: SessionUser, vehicle: Vehicle, records: 
 
 export async function findReport(code: string): Promise<VerifiedReport | null> {
   const rows = await db()<VerifiedReport[]>`
-    SELECT r.code, r.vehicle_id, r.record_count, r.head_hash, r.score, r.issued_at, w.name AS agency_name, w.phone AS agency_phone
-    FROM verified_reports r JOIN workshops w ON w.id = r.workshop_id
+    SELECT r.code, r.vehicle_id, r.record_count, r.head_hash, r.score, r.issued_at,
+      coalesce(w.name, 'Legajo') AS agency_name, w.phone AS agency_phone, p.status AS purchase_status
+    FROM verified_reports r LEFT JOIN workshops w ON w.id = r.workshop_id LEFT JOIN purchases p ON p.id = r.purchase_id
     WHERE r.code = ${code}
   `;
   return rows[0] ?? null;

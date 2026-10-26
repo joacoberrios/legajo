@@ -103,10 +103,18 @@ src/app/taller/        app del taller (requiere login)
 src/app/i/[slug]/      informe público
 ```
 
+## Cobros (Mercado Pago)
+
+El cobro arranca **apagado** (piloto gratis). Se prende desde `/admin/cobros`, donde también se editan precios, se dan cortesías (ej.: Taller Pro gratis 6 meses) y descuentos por cuenta.
+
+- Particulares: Checkout Pro desde el informe público (`/i/[slug]`) → `/compra/[id]` muestra el informe verificado. Pack de 3: los otros créditos se usan con otra patente.
+- Agencias y Taller Pro: suscripción mensual (preapproval) desde `/taller/plan` o `/panel/plan`.
+- Avisos: `POST /api/mp/webhook` (eventos *Pagos* y *Planes y suscripciones*). Siempre vuelve a consultar el recurso en la API de Mercado Pago; si hay `MP_WEBHOOK_SECRET`, además valida la firma.
+- Variables: `MP_ACCESS_TOKEN`, `MP_TEST_MODE`, `MP_WEBHOOK_SECRET` (ver `.env.example`).
+
 ## Próximos pasos
 
 - Fotos y comprobantes (Vercel Blob)
 - Lectura de patente por cámara (OCR)
 - Aviso al dueño por WhatsApp con el link del legajo
 - Panel de administración para verificar talleres
-- Cobro del informe completo (Mercado Pago)

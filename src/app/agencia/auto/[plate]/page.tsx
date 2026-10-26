@@ -4,6 +4,8 @@ import { issueReportAction, setStageAction, unfollowAction } from "@/app/actions
 import { Plate } from "@/components/Plate";
 import { ReportSummary } from "@/components/ReportSummary";
 import { Timeline } from "@/components/Timeline";
+import { HistoryLock, REPORT_ERRORS } from "@/components/HistoryLock";
+import { seesFullHistory } from "@/lib/billing";
 import { findFollow, markSeen, STAGE_LABELS, STAGES } from "@/lib/agency";
 import { requireAgency } from "@/lib/auth";
 import { findVehicleByPlate, listRecords } from "@/lib/data";
@@ -40,7 +42,12 @@ export default async function AgencyVehicle({
     );
   }
 
-  const [records, follow] = await Promise.all([listRecords(vehicle.id), findFollow(user.workshopId, vehicle.id), logView(vehicle.id, user, viewSource(via))]);
+  const [records, follow, full] = await Promise.all([
+    listRecords(vehicle.id),
+    findFollow(user.workshopId, vehicle.id),
+    seesFullHistory(user, vehicle.id),
+    logView(vehicle.id, user, viewSource(via)),
+  ]);
   const a = analyze(records);
   const news = follow ? records.length - follow.seenRecords : 0;
   if (follow && news !== 0) await markSeen(user.workshopId, vehicle.id, records.length);
@@ -97,8 +104,11 @@ export default async function AgencyVehicle({
       </section>
 
       <section className="space-y-2">
-        {error === "verificacion" && (
-          <p role="alert" className="rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">Los informes verificados se habilitan cuando verifiquemos el CUIT de tu agencia.</p>
+        {error && REPORT_ERRORS[error] && (
+          <p role="alert" className="rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+            {REPORT_ERRORS[error]}{" "}
+            {(error === "plan" || error === "cupo") && <Link href="/taller/plan" className="font-semibold underline">Ver plan</Link>}
+          </p>
         )}
         <form action={issueReportAction}>
           <input type="hidden" name="plate" value={vehicle.plate} />
@@ -112,7 +122,7 @@ export default async function AgencyVehicle({
           <h2 className="font-bold">Historial</h2>
           <span className="text-xs text-muted">Tu consulta queda registrada en el informe</span>
         </div>
-        <Timeline records={records} mode="public" />
+        {full ? <Timeline records={records} mode="public" /> : <HistoryLock hidden={records.length} agency href="/taller/plan" />}
       </section>
     </main>
   );

@@ -8,6 +8,8 @@ import { Timeline } from "@/components/Timeline";
 import { findVehicleBySlug, listRecords } from "@/lib/data";
 import { analyze } from "@/lib/ledger";
 import { recentViews } from "@/lib/views";
+import { BuyReport } from "@/components/BuyReport";
+import { getSettings, seesFullHistory } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +19,18 @@ export const metadata: Metadata = {
 };
 
 /** Informe público: lo abre cualquiera con el link o el QR. Sin datos del dueño ni notas internas. */
-export default async function PublicReport({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PublicReport({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ pago?: string }> }) {
   const { slug } = await params;
+  const { pago } = await searchParams;
   const vehicle = await findVehicleBySlug(slug);
   if (!vehicle) notFound();
 
   const [records, consults, user] = await Promise.all([listRecords(vehicle.id), recentViews(vehicle.id), currentUser()]);
   const visitor = !user; // alguien que escaneó el QR sin conocer Legajo
   const a = analyze(records);
+  // Con la llave de cobro prendida, el historial detallado es pago (salvo cuentas con acceso).
+  const settings = await getSettings();
+  const full = !settings.enabled || (user ? await seesFullHistory(user, vehicle.id) : false);
   const today = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   return (
@@ -52,7 +58,11 @@ export default async function PublicReport({ params }: { params: Promise<{ slug:
 
         <section className="space-y-3">
           <h2 className="font-bold">Historial</h2>
-          <Timeline records={records} mode="public" />
+          {full ? (
+            <Timeline records={records} mode="public" />
+          ) : (
+            <BuyReport slug={slug} records={a.effectiveCount} workshops={a.workshops} prices={settings.prices} unavailable={pago === "no-disponible"} />
+          )}
         </section>
 
         <section className="space-y-2">

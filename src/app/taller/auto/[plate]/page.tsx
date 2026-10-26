@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plate } from "@/components/Plate";
 import { Timeline, formatKm } from "@/components/Timeline";
+import { HistoryLock } from "@/components/HistoryLock";
+import { seesFullHistory } from "@/lib/billing";
+import { FREE_RECORDS_FOR_OTHERS } from "@/lib/billing-plans";
 import { CompleteVehicleForm, VehicleForm } from "@/components/VehicleForm";
 import { decodePrefill } from "@/lib/vision-types";
 import { requireWorkshop } from "@/lib/auth";
@@ -50,7 +53,13 @@ export default async function VehiclePage({
     );
   }
 
-  const [records, stickers] = await Promise.all([listRecords(vehicle.id), vehicleStickers(vehicle.id), logView(vehicle.id, user, viewSource(via))]);
+  const [records, stickers, full] = await Promise.all([
+    listRecords(vehicle.id),
+    vehicleStickers(vehicle.id),
+    seesFullHistory(user, vehicle.id),
+    logView(vehicle.id, user, viewSource(via)),
+  ]);
+  const shown = full ? records : records.slice(-FREE_RECORDS_FOR_OTHERS);
   const a = analyze(records);
 
   // Mensaje para el dueño: el último trabajo que cargó este taller (o el último del auto) y el link al informe.
@@ -139,7 +148,8 @@ export default async function VehiclePage({
           <h2 className="font-bold">Historial</h2>
           <span className="text-xs text-muted">Tu consulta queda registrada en el informe</span>
         </div>
-        <Timeline records={records} mode="taller" plate={vehicle.plate} workshopId={user.workshopId} />
+        <Timeline records={shown} mode="taller" plate={vehicle.plate} workshopId={user.workshopId} />
+        <HistoryLock hidden={records.length - shown.length} agency={false} href="/taller/plan" />
       </section>
 
       <div className="sticky bottom-0 -mx-5 border-t border-line bg-paper px-5 pt-3 pb-6">

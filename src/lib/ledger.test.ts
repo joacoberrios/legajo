@@ -232,3 +232,37 @@ test("stickers: códigos al azar, legibles y fáciles de tipear", () => {
   assert.equal(stickerCodeFromQr("https://legajoapp.vercel.app/i/QwCEa6a0zkjx"), null);
   assert.equal(stickerCodeFromQr("abcd-2345"), "ABCD2345");
 });
+
+import { DEFAULT_PRICES, discounted, isActive, resolvePrices } from "./billing-plans.ts";
+
+test("cobros: precios guardados, descuentos y vigencia del plan", () => {
+  assert.deepEqual(resolvePrices(null), DEFAULT_PRICES);
+  const p = resolvePrices({ agencia: 59900, report_single: "abc", taller_pro: 5 });
+  assert.equal(p.agencia, 59900);
+  assert.equal(p.report_single, DEFAULT_PRICES.report_single);
+  assert.equal(p.taller_pro, DEFAULT_PRICES.taller_pro); // 5 pesos no es un precio válido
+  assert.equal(discounted(49900, 50), 25000);
+  assert.equal(discounted(49900, 0), 49900);
+  const now = new Date("2026-11-10T12:00:00Z");
+  assert.equal(isActive({ status: "authorized", currentPeriodEnd: new Date("2026-11-20") }, now), true);
+  assert.equal(isActive({ status: "authorized", currentPeriodEnd: new Date("2026-11-08") }, now), true); // gracia
+  assert.equal(isActive({ status: "authorized", currentPeriodEnd: new Date("2026-11-01") }, now), false);
+  assert.equal(isActive({ status: "courtesy", currentPeriodEnd: new Date("2027-01-01") }, now), true);
+  assert.equal(isActive({ status: "cancelled", currentPeriodEnd: new Date("2027-01-01") }, now), false);
+  assert.equal(isActive(null, now), false);
+});
+
+import { createHmac } from "node:crypto";
+import { verifyMpSignature } from "./mp-signature.ts";
+
+test("Mercado Pago: firma de los avisos", () => {
+  const secret = "clave-de-prueba";
+  const ts = "1704908010";
+  const v1 = createHmac("sha256", secret).update(`id:123456;request-id:abc-1;ts:${ts};`).digest("hex");
+  const ok = { secret, signature: `ts=${ts},v1=${v1}`, requestId: "abc-1", dataId: "123456" };
+  assert.equal(verifyMpSignature(ok), true);
+  assert.equal(verifyMpSignature({ ...ok, dataId: "999" }), false);
+  assert.equal(verifyMpSignature({ ...ok, secret: "otra" }), false);
+  assert.equal(verifyMpSignature({ ...ok, signature: null }), false);
+  assert.equal(verifyMpSignature({ ...ok, signature: "ts=1,v1=zz" }), false);
+});

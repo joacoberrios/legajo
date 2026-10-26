@@ -78,6 +78,7 @@ export function PitchActions() {
           <p className="font-bold">Voy a comprar un usado</p>
           <p className="text-sm leading-snug text-muted">Antes de pagar, pedí su Legajo. Si no tiene, llevalo a un taller con Legajo para que quede registrado el estado de hoy.</p>
         </div>
+        <Link href="/planes" className="block text-center text-sm font-semibold text-muted underline">Ver planes y precios</Link>
         <div className="card space-y-1 px-4 py-3.5">
           <p className="font-bold">Tengo un auto</p>
           <p className="text-sm leading-snug text-muted">Pedile a tu mecánico que cargue cada service. Cuando lo vendas, vale más un auto que demuestra cómo lo cuidaste.</p>

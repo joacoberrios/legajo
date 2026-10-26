@@ -86,9 +86,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <div className="text-xl font-extrabold tracking-tight">Legajo · Admin</div>
           <div className="text-xs text-muted">Piloto Gran Mendoza</div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Link href="/admin/actividad" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
             Actividad
+          </Link>
+          <Link href="/admin/cobros" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+            Cobros
           </Link>
           <Link href="/admin/stickers" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
             Stickers

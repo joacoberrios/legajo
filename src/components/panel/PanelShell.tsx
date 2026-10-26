@@ -11,6 +11,7 @@ export function PanelShell({ user, children }: { user: SessionUser; children?: R
     { href: "/panel", label: "Resumen", icon: "home" },
     { href: "/panel/vehiculos", label: agency ? "Mis autos" : "Vehículos", icon: "car" },
     ...(agency ? [{ href: "/panel/informes", label: "Informes", icon: "doc" }] : [{ href: "/panel/registros", label: "Registros", icon: "list" }]),
+    { href: "/panel/plan", label: "Plan", icon: "card" },
     { href: "/panel/equipo", label: "Equipo", icon: "team" },
     { href: "/panel/datos", label: agency ? "Datos de la agencia" : "Datos del taller", icon: "pin" },
   ] as const;

@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAgency } from "@/lib/auth";
-import { issueReport, isStage, setFollow, unfollow } from "@/lib/agency";
+import { isStage, setFollow, unfollow } from "@/lib/agency";
+import { issueAgencyReport } from "@/lib/billing";
 import { findVehicleByPlate, listRecords } from "@/lib/data";
 import { normalizePlate } from "@/lib/plate";
 
@@ -46,6 +47,8 @@ export async function issueReportAction(form: FormData) {
   const vehicle = await vehicleFrom(form);
   const back = text(form, "base") === "panel" ? `/panel/vehiculos/${vehicle.plate}` : `/agencia/auto/${vehicle.plate}`;
   if (!user.workshopVerified) redirect(`${back}?error=verificacion`);
-  const code = await issueReport(user, vehicle, await listRecords(vehicle.id));
+  const r = await issueAgencyReport(user, vehicle.id);
+  if ("error" in r) redirect(`${back}?error=${r.error}`);
+  const code = r.code;
   redirect(`/v/${code}?nuevo=1`);
 }

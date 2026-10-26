@@ -62,7 +62,11 @@ export default async function VerifiedReportPage({ params, searchParams }: { par
           <p className="text-sm">Emitido el <strong>{issued}</strong> por <strong>{report.agencyName}</strong></p>
         </section>
 
-        {intact ? (
+        {report.purchaseStatus === "refunded" ? (
+          <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm font-semibold text-red-800">
+            Este informe quedó anulado porque se devolvió el pago.
+          </p>
+        ) : intact ? (
           <p className="rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900">
             Validado: el historial de este informe no tuvo cambios desde que se emitió.
           </p>

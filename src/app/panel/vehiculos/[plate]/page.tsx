@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { issueReportAction, setStageAction, unfollowAction } from "@/app/actions/agency";
 import { Plate } from "@/components/Plate";
+import { HistoryLock, REPORT_ERRORS } from "@/components/HistoryLock";
+import { seesFullHistory } from "@/lib/billing";
+import { FREE_RECORDS_FOR_OTHERS } from "@/lib/billing-plans";
 import { ReportSummary } from "@/components/ReportSummary";
 import { CompleteVehicleForm } from "@/components/VehicleForm";
 import { btnPrimary, btnSecondary } from "@/components/panel/PanelShell";
@@ -60,12 +63,14 @@ export default async function PanelVehicle({
     );
   }
 
-  const [records, stickers, follow] = await Promise.all([
+  const [records, stickers, follow, full] = await Promise.all([
     listRecords(vehicle.id),
     vehicleStickers(vehicle.id),
     agency ? findFollow(user.workshopId, vehicle.id) : Promise.resolve(null),
+    seesFullHistory(user, vehicle.id),
     logView(vehicle.id, user, "patente"),
   ]);
+  const shown = full ? records : agency ? [] : records.slice(-FREE_RECORDS_FOR_OTHERS);
   if (follow && follow.seenRecords !== records.length) await markSeen(user.workshopId, vehicle.id, records.length);
 
   const a = analyze(records);
@@ -104,7 +109,12 @@ export default async function PanelVehicle({
       {sp.cargado && <Notice tone="ok">Registro firmado y agregado al legajo.</Notice>}
       {sp.vinculado && <Notice tone="ok">Sticker vinculado al auto.</Notice>}
       {sp.stickerError && <Notice tone="error">El auto quedó guardado, pero el sticker no se pudo asignar: {sp.stickerError}</Notice>}
-      {sp.error === "verificacion" && <Notice tone="warn">Los informes verificados se habilitan cuando verifiquemos el CUIT de tu agencia.</Notice>}
+      {sp.error && REPORT_ERRORS[sp.error] && (
+        <Notice tone="warn">
+          {REPORT_ERRORS[sp.error]}{" "}
+          {(sp.error === "plan" || sp.error === "cupo") && <Link href="/panel/plan" className="font-semibold underline">Ver plan</Link>}
+        </Notice>
+      )}
       {a.kmIssues > 0 && <Notice tone="warn">Hay {a.kmIssues} registro{a.kmIssues > 1 ? "s" : ""} con km menor a uno anterior (marcados en la tabla).</Notice>}
 
       <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -165,8 +175,13 @@ export default async function PanelVehicle({
             <h2 className="font-bold">Historial</h2>
             <span className="text-xs text-muted">{records.length} registro{records.length === 1 ? "" : "s"} · del más nuevo al más viejo</span>
           </div>
-          {records.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">Todavía no tiene registros.</p>
+          {shown.length < records.length && (
+            <div className="border-b border-line p-4">
+              <HistoryLock hidden={records.length - shown.length} agency={agency} href="/panel/plan" />
+            </div>
+          )}
+          {shown.length === 0 ? (
+            records.length === 0 && <p className="px-4 py-10 text-center text-sm text-muted">Todavía no tiene registros.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className={tableCls}>
@@ -182,7 +197,7 @@ export default async function PanelVehicle({
                   </tr>
                 </thead>
                 <tbody>
-                  {[...records].reverse().map((r) => {
+                  {[...shown].reverse().map((r) => {
                     const isCorrected = correctedIds.has(r.id);
                     const target = r.correctsId ? byId.get(r.correctsId) : null;
                     const own = r.workshopId === user.workshopId;
