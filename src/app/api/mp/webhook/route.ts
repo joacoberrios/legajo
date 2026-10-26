@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { approvePurchase, logMpEvent, rejectPurchase, renewSubscription, syncSubscription } from "@/lib/billing";
+import { approvePurchase, logMpEvent, recordPayment, rejectPurchase, renewSubscription, syncSubscription } from "@/lib/billing";
 import { getAuthorizedPayment, getPayment, getPreapproval } from "@/lib/mercadopago";
 import { verifyMpSignature } from "@/lib/mp-signature";
 
@@ -45,8 +45,9 @@ export async function POST(request: Request) {
 async function handle(topic: string, id: string): Promise<string> {
   if (topic === "payment") {
     const p = await getPayment(id);
+    await recordPayment(p);
     const ref = p.external_reference ?? "";
-    if (!ref.startsWith("buy:")) return "pago sin compra asociada";
+    if (!ref.startsWith("buy:")) return `pago ${p.status} registrado`;
     const purchaseId = ref.slice(4);
     if (p.status === "approved") return approvePurchase(purchaseId, String(p.id), p.transaction_amount);
     if (p.status === "rejected" || p.status === "cancelled") {
@@ -65,6 +66,7 @@ async function handle(topic: string, id: string): Promise<string> {
   }
   if (topic === "subscription_authorized_payment" || topic === "authorized_payment") {
     const ap = await getAuthorizedPayment(id);
+    if (ap.payment?.id) await recordPayment(await getPayment(String(ap.payment.id)), ap.preapproval_id);
     const approved = ap.payment?.status === "approved" || ap.status === "processed";
     if (!approved) return `débito ${ap.status}`;
     const pre = await getPreapproval(ap.preapproval_id);

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { redeemAction } from "@/app/actions/billing";
 import { Plate } from "@/components/Plate";
 import { Wordmark } from "@/components/Wordmark";
-import { approvePurchase, findPurchase, purchaseReports, rejectPurchase } from "@/lib/billing";
+import { approvePurchase, findPurchase, purchaseReports, recordPayment, rejectPurchase } from "@/lib/billing";
 import { formatARS, PURCHASES } from "@/lib/billing-plans";
 import { getPayment, mpConfigured } from "@/lib/mercadopago";
 import { formatStickerCode } from "@/lib/sticker-code";
@@ -33,6 +33,7 @@ export default async function PurchasePage({
     try {
       const p = await getPayment(sp.payment_id);
       if (p.external_reference === `buy:${purchase.id}`) {
+        await recordPayment(p);
         if (p.status === "approved") await approvePurchase(purchase.id, String(p.id), p.transaction_amount);
         else if (p.status === "rejected" || p.status === "cancelled") await rejectPurchase(purchase.id, String(p.id), "rejected");
       }

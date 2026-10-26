@@ -90,6 +90,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <Link href="/admin/actividad" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
             Actividad
           </Link>
+          <Link href="/admin/cuentas" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
+            Cuentas
+          </Link>
           <Link href="/admin/cobros" className="flex h-11 items-center rounded-xl border border-line bg-white px-3 text-sm font-semibold">
             Cobros
           </Link>
@@ -169,7 +172,7 @@ function WorkshopCard({ w, own }: { w: WorkshopRow; own: boolean }) {
     <article className="card space-y-2.5 px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-semibold">{w.name}{w.kind === "agencia" && <span className="ml-2 rounded-full bg-ink px-2 py-0.5 align-middle text-[11px] font-semibold text-white">Agencia</span>}</h3>
+          <h3 className="truncate font-semibold"><Link href={`/admin/cuentas/${w.id}`} className="hover:text-accent">{w.name}</Link>{w.kind === "agencia" && <span className="ml-2 rounded-full bg-ink px-2 py-0.5 align-middle text-[11px] font-semibold text-white">Agencia</span>}</h3>
           <p className="font-mono text-xs text-muted">CUIT {formatCuit(w.cuit)}</p>
           <p className="text-xs text-muted">{[w.ownerName, w.ownerEmail].filter(Boolean).join(" · ")}</p>
           <p className="text-xs">

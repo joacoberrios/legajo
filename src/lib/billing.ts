@@ -1,4 +1,5 @@
 import "server-only";
+import type { Payment } from "./mercadopago";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "./db";
 import { issueReport } from "./agency";
@@ -265,4 +266,65 @@ export async function logMpEvent(topic: string, resourceId: string, result: stri
   try {
     await db()`INSERT INTO mp_events (topic, resource_id, result) VALUES (${topic}, ${resourceId}, ${result})`;
   } catch {}
+}
+
+
+// ---------- Historial de pagos ----------
+
+/**
+ * Guarda (o actualiza) un pago tal como lo informa Mercado Pago. Sirve para el historial del admin:
+ * compras únicas (external_reference "buy:<id>") y débitos de suscripciones ("sub:<id>" o preapproval).
+ */
+export async function recordPayment(p: Payment, preapprovalId: string | null = null) {
+  const ref = p.external_reference ?? "";
+  const sql = db();
+  let source: "compra" | "suscripcion" | "otro" = "otro";
+  let purchaseId: string | null = null;
+  let subscriptionId: string | null = null;
+  let workshopId: string | null = null;
+  let concept = "Pago";
+
+  if (ref.startsWith("buy:")) {
+    const [pu] = await sql<{ id: string; kind: keyof typeof PURCHASES; workshopId: string | null; plate: string | null }[]>`
+      SELECT p.id, p.kind, p.workshop_id, v.plate FROM purchases p LEFT JOIN vehicles v ON v.id = p.vehicle_id WHERE p.id::text = ${ref.slice(4)}
+    `;
+    if (pu) {
+      source = "compra";
+      purchaseId = pu.id;
+      workshopId = pu.workshopId;
+      concept = `${PURCHASES[pu.kind].name}${pu.plate ? ` · ${pu.plate}` : ""}`;
+    }
+  } else {
+    const pre = preapprovalId ?? p.preapproval_id ?? p.point_of_interaction?.transaction_data?.subscription_id ?? null;
+    const subRef = ref.startsWith("sub:") ? ref.slice(4) : "";
+    if (pre || subRef) {
+      const [su] = await sql<{ id: string; plan: PlanKey; workshopId: string }[]>`
+        SELECT id, plan, workshop_id FROM subscriptions WHERE mp_preapproval_id = ${pre ?? ""} OR id::text = ${subRef} LIMIT 1
+      `;
+      if (su) {
+        source = "suscripcion";
+        subscriptionId = su.id;
+        workshopId = su.workshopId;
+        concept = `Plan ${PLANS[su.plan].name}`;
+      }
+    }
+  }
+
+  const paidAt = p.date_approved ? new Date(p.date_approved) : null;
+  const net = p.transaction_details?.net_received_amount ?? null;
+  await sql`
+    INSERT INTO payments (mp_payment_id, source, purchase_id, subscription_id, workshop_id, concept, amount, net_amount, status, status_detail, method, payer_email, paid_at, created_at)
+    VALUES (${String(p.id)}, ${source}, ${purchaseId}, ${subscriptionId}, ${workshopId}, ${concept}, ${p.transaction_amount}, ${net},
+      ${p.status}, ${p.status_detail ?? null}, ${p.payment_method_id ?? null}, ${p.payer?.email ?? null}, ${paidAt},
+      coalesce(${p.date_created ? new Date(p.date_created) : null}::timestamptz, now()))
+    ON CONFLICT (mp_payment_id) DO UPDATE SET
+      status = excluded.status, status_detail = excluded.status_detail, net_amount = coalesce(excluded.net_amount, payments.net_amount),
+      paid_at = coalesce(excluded.paid_at, payments.paid_at), method = coalesce(excluded.method, payments.method),
+      source = CASE WHEN payments.source = 'otro' THEN excluded.source ELSE payments.source END,
+      purchase_id = coalesce(payments.purchase_id, excluded.purchase_id),
+      subscription_id = coalesce(payments.subscription_id, excluded.subscription_id),
+      workshop_id = coalesce(payments.workshop_id, excluded.workshop_id),
+      concept = CASE WHEN payments.source = 'otro' THEN excluded.concept ELSE payments.concept END,
+      updated_at = now()
+  `;
 }

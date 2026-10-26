@@ -26,6 +26,11 @@ import { appUrl } from "@/lib/url";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+/** Vuelta a una pantalla del admin (solo rutas internas /admin/...). */
+const adminBack = (f: FormData) => {
+  const b = text(f, "back");
+  return /^\/admin(\/[\w-]+)*$/.test(b) ? b : "/admin/cobros";
+};
 
 // ---------- Particulares ----------
 
@@ -142,18 +147,20 @@ export async function grantCourtesyAction(form: FormData) {
   const workshopId = text(form, "workshopId");
   const plan = text(form, "plan") as PlanKey;
   const months = Math.floor(Number(text(form, "months")));
-  if (!isUuid(workshopId) || !(plan in PLANS) || !(months >= 1 && months <= 24)) redirect("/admin/cobros?error=cortesia");
+  const back = adminBack(form);
+  if (!isUuid(workshopId) || !(plan in PLANS) || !(months >= 1 && months <= 24)) redirect(`${back}?error=cortesia`);
   await grantCourtesy(workshopId, plan, months, admin.id);
-  revalidatePath("/admin/cobros");
-  redirect("/admin/cobros?cortesia=1");
+  revalidatePath(back);
+  redirect(`${back}?cortesia=1`);
 }
 
 export async function setDiscountAction(form: FormData) {
   await requireAdmin();
   const workshopId = text(form, "workshopId");
   const pct = Math.floor(Number(text(form, "pct")));
-  if (!isUuid(workshopId) || !(pct >= 0 && pct <= 100)) redirect("/admin/cobros?error=descuento");
+  const back = adminBack(form);
+  if (!isUuid(workshopId) || !(pct >= 0 && pct <= 100)) redirect(`${back}?error=descuento`);
   await db()`UPDATE workshops SET price_discount_pct = ${pct} WHERE id = ${workshopId}`;
-  revalidatePath("/admin/cobros");
-  redirect("/admin/cobros?descuento=1");
+  revalidatePath(back);
+  redirect(`${back}?descuento=1`);
 }

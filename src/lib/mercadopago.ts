@@ -62,7 +62,21 @@ export function createPreference(input: {
   });
 }
 
-export type Payment = { id: number; status: string; status_detail: string; external_reference: string | null; transaction_amount: number; date_approved: string | null };
+export type Payment = {
+  id: number;
+  status: string;
+  status_detail: string;
+  external_reference: string | null;
+  transaction_amount: number;
+  date_approved: string | null;
+  date_created?: string | null;
+  payment_method_id?: string | null;
+  payer?: { email?: string | null } | null;
+  transaction_details?: { net_received_amount?: number | null } | null;
+  metadata?: Record<string, unknown> | null;
+  preapproval_id?: string | null;
+  point_of_interaction?: { transaction_data?: { subscription_id?: string | null } | null } | null;
+};
 
 export function getPayment(id: string) {
   return mp<Payment>(`/v1/payments/${encodeURIComponent(id)}`);
