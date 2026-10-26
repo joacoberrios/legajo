@@ -5,26 +5,31 @@ import { ReportsList } from "@/components/panel/ReportsList";
 import { RecordsTable } from "@/components/panel/RecordsTable";
 import { tableCls, tdCls, theadCls, trCls } from "@/components/panel/Table";
 import { listFollowed, listReports, STAGE_LABELS } from "@/lib/agency";
-import { requireUser } from "@/lib/auth";
-import { agencySummary, panelRecords, recordFilters, workshopSummary } from "@/lib/panel";
+import { isAdmin, requireUser } from "@/lib/auth";
+import { ScopeToggle } from "@/components/panel/ScopeToggle";
+import { agencySummary, panelRecords, recordFilters, seesNetwork, workshopSummary } from "@/lib/panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function PanelHome() {
+export default async function PanelHome({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireUser();
-  return user.workshopKind === "agencia" ? <AgencyHome workshopId={user.workshopId} name={user.workshopName} /> : <WorkshopHome workshopId={user.workshopId} name={user.workshopName} />;
+  const admin = isAdmin(user);
+  const all = seesNetwork(user, await searchParams);
+  if (user.workshopKind === "agencia" && !all) return <AgencyHome workshopId={user.workshopId} name={user.workshopName} admin={admin} />;
+  return <WorkshopHome workshopId={user.workshopId} name={user.workshopName} admin={admin} all={all} />;
 }
 
-async function WorkshopHome({ workshopId, name }: { workshopId: string; name: string }) {
-  const [s, recent] = await Promise.all([workshopSummary(workshopId), panelRecords(workshopId, { ...recordFilters({}), page: 1 }, 10)]);
+async function WorkshopHome({ workshopId, name, admin, all }: { workshopId: string; name: string; admin: boolean; all: boolean }) {
+  const [s, recent] = await Promise.all([workshopSummary(workshopId, all), panelRecords(workshopId, { ...recordFilters({}), page: 1 }, 10, all)]);
   const delta = s.recordsMonth - s.recordsPrevMonth;
   return (
     <>
-      <PageHeader title={name} sub="Resumen del taller">
+      <PageHeader title={all ? "Toda la red Legajo" : name} sub={all ? "Resumen de todos los talleres y agencias" : "Resumen del taller"}>
+        {admin && <ScopeToggle path="/panel" all={all} />}
         <Link href="/panel/vehiculos/nuevo" className={btnPrimary}>+ Nuevo auto</Link>
       </PageHeader>
       <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Stat label="Vehículos" value={s.vehicles} note="Dados de alta o atendidos" />
+        <Stat label="Vehículos" value={s.vehicles} note={all ? "En toda la red" : "Dados de alta o atendidos"} />
         <Stat label="Registros este mes" value={s.recordsMonth} note={`${delta >= 0 ? "+" : ""}${delta} contra el mes anterior`} />
         <Stat label="Registros totales" value={s.records} note={`${s.users} usuario${s.users === 1 ? "" : "s"} cargando`} />
         <Stat label="Con respaldo" value={`${s.backedPct}%`} note="Con foto del odómetro o comprobante" />
@@ -37,19 +42,20 @@ async function WorkshopHome({ workshopId, name }: { workshopId: string; name: st
         {recent.rows.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-muted">Todavía no cargaste registros. Empezá dando de alta un auto.</p>
         ) : (
-          <RecordsTable rows={recent.rows} />
+          <RecordsTable rows={recent.rows} showWorkshop={all} />
         )}
       </section>
     </>
   );
 }
 
-async function AgencyHome({ workshopId, name }: { workshopId: string; name: string }) {
+async function AgencyHome({ workshopId, name, admin }: { workshopId: string; name: string; admin: boolean }) {
   const [s, followed, reports] = await Promise.all([agencySummary(workshopId), listFollowed(workshopId), listReports(workshopId, 8)]);
   const news = followed.filter((f) => f.records > f.seenRecords && f.stage !== "vendido");
   return (
     <>
       <PageHeader title={name} sub="Resumen de la agencia">
+        {admin && <ScopeToggle path="/panel" all={false} />}
         <Link href="/panel/vehiculos/nuevo" className={btnPrimary}>Revisar una patente</Link>
       </PageHeader>
       <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-4">

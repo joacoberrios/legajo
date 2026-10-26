@@ -5,10 +5,11 @@ import type { VehicleFilters } from "@/lib/panel";
 import { btnSecondary, input } from "./PanelShell";
 
 /** Barra de filtros de la lista de vehículos (formulario GET: los filtros quedan en la URL). */
-export function VehicleFilterBar({ f, makes, agency }: { f: VehicleFilters; makes: string[]; agency: boolean }) {
+export function VehicleFilterBar({ f, makes, agency, mine = false }: { f: VehicleFilters; makes: string[]; agency: boolean; mine?: boolean }) {
   const active = f.q || f.make || f.type || f.stage || f.from || f.to;
   return (
     <form action="/panel/vehiculos" className="flex flex-wrap items-end gap-3 border-b border-line px-4 py-4">
+      {mine && <input type="hidden" name="vista" value="mia" />}
       <input type="hidden" name="orden" value={f.sort} />
       <input type="hidden" name="dir" value={f.dir} />
       <div className="min-w-[220px] flex-1">

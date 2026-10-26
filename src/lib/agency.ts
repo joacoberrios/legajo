@@ -113,11 +113,11 @@ export async function findReport(code: string): Promise<VerifiedReport | null> {
 
 export type IssuedReport = { code: string; plate: string; make: string; model: string; issuedAt: Date; score: number | null };
 
-export async function listReports(workshopId: string, limit = 10): Promise<IssuedReport[]> {
+export async function listReports(workshopId: string, limit = 10, all = false): Promise<IssuedReport[]> {
   return db()<IssuedReport[]>`
     SELECT r.code, v.plate, v.make, v.model, r.issued_at, r.score
     FROM verified_reports r JOIN vehicles v ON v.id = r.vehicle_id
-    WHERE r.workshop_id = ${workshopId}
+    WHERE (${all} OR r.workshop_id = ${workshopId})
     ORDER BY r.issued_at DESC LIMIT ${limit}
   `;
 }

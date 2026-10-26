@@ -7,7 +7,7 @@ import { SortTh, tableCls, tdCls, theadCls, trCls } from "./Table";
 const fmtDay = (iso: string) => iso.split("-").reverse().join("/");
 
 /** Tabla de registros del taller. Sin `f` no ordena (vista corta del resumen). */
-export function RecordsTable({ rows, f, href }: { rows: PanelRecord[]; f?: RecordFilters; href?: (over: Record<string, string | number | null>) => string }) {
+export function RecordsTable({ rows, f, href, showWorkshop = false }: { rows: PanelRecord[]; f?: RecordFilters; href?: (over: Record<string, string | number | null>) => string; showWorkshop?: boolean }) {
   const th = (label: string, col: string, align: "left" | "right" = "left", defaultDir: "asc" | "desc" = "asc") =>
     f && href ? (
       <SortTh label={label} col={col} sort={f.sort} dir={f.dir} href={href} align={align} defaultDir={defaultDir} />
@@ -26,6 +26,7 @@ export function RecordsTable({ rows, f, href }: { rows: PanelRecord[]; f?: Recor
             {th("Km", "km", "right", "desc")}
             <th scope="col" className="px-4 py-3 text-left font-semibold">Trabajos</th>
             <th scope="col" className="px-4 py-3 text-left font-semibold">Respaldo</th>
+            {showWorkshop && <th scope="col" className="px-4 py-3 text-left font-semibold">Taller</th>}
             {th("Cargó", "cargado", "left", "desc")}
           </tr>
         </thead>
@@ -52,6 +53,7 @@ export function RecordsTable({ rows, f, href }: { rows: PanelRecord[]; f?: Recor
                   <span className="text-xs whitespace-nowrap text-muted">{r.attachments ? `${r.attachments} foto${r.attachments === 1 ? "" : "s"}` : "Sin adjuntos"}</span>
                 )}
               </td>
+              {showWorkshop && <td className={`${tdCls} whitespace-nowrap font-semibold`}>{r.workshopName}</td>}
               <td className={`${tdCls} whitespace-nowrap`}>
                 <div>{r.userName}</div>
                 <div className="font-mono text-[11px] text-muted">

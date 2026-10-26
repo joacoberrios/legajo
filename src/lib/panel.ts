@@ -1,9 +1,15 @@
 import "server-only";
+import { isAdmin, type SessionUser } from "./auth";
 import { db } from "./db";
 import type { RecordType } from "./records-meta";
 import type { Stage } from "./agency";
 
 export const PAGE_SIZE = 50;
+
+/** Los admins de Legajo ven toda la red en el panel (salvo que elijan «solo mi cuenta» con ?vista=mia). */
+export function seesNetwork(user: SessionUser, sp: Record<string, string | undefined> = {}) {
+  return isAdmin(user) && sp.vista !== "mia";
+}
 
 export type Dir = "asc" | "desc";
 export const dirOf = (v: string | undefined, fallback: Dir): Dir => (v === "asc" || v === "desc" ? v : fallback);
@@ -67,10 +73,14 @@ export type PanelVehicle = {
  * Autos de la cuenta: para un taller, los que dio de alta o atendió; para una agencia, los que sigue.
  * Filtros y orden parametrizados (nunca SQL armado con texto del usuario).
  */
-export async function panelVehicles(workshopId: string, agency: boolean, f: VehicleFilters) {
+export async function panelVehicles(workshopId: string, agency: boolean, f: VehicleFilters, all = false) {
   const sql = db();
   const like = `%${f.q}%`;
-  const base = agency
+  const base = all
+    ? sql`
+        SELECT v.id, av.stage, av.seen_records FROM vehicles v
+        LEFT JOIN agency_vehicles av ON av.vehicle_id = v.id AND av.workshop_id = ${workshopId}`
+    : agency
     ? sql`SELECT vehicle_id AS id, stage, seen_records FROM agency_vehicles WHERE workshop_id = ${workshopId}`
     : sql`
         SELECT v.id, NULL::text AS stage, NULL::int AS seen_records FROM vehicles v
@@ -166,6 +176,7 @@ export type PanelRecord = {
   correctsId: string | null;
   corrected: boolean;
   userName: string;
+  workshopName: string;
   plate: string;
   make: string;
   model: string;
@@ -175,21 +186,22 @@ export type PanelRecord = {
 };
 
 /** Registros cargados por la cuenta. `limit` null = todos (exportación, con tope). */
-export async function panelRecords(workshopId: string, f: RecordFilters, limit: number | null = PAGE_SIZE) {
+export async function panelRecords(workshopId: string, f: RecordFilters, limit: number | null = PAGE_SIZE, all = false) {
   const sql = db();
   const like = `%${f.q}%`;
   const rows = await sql<PanelRecord[]>`
     SELECT r.id, r.created_at, r.performed_on::text AS performed_on, r.type, r.odometer_km, r.items, r.notes, r.corrects_id,
       EXISTS (SELECT 1 FROM service_records c WHERE c.corrects_id = r.id) AS corrected,
-      u.name AS user_name, v.plate, v.make, v.model,
+      u.name AS user_name, w.name AS workshop_name, v.plate, v.make, v.model,
       (SELECT count(*) FROM record_attachments a WHERE a.record_id = r.id)::int AS attachments,
       EXISTS (SELECT 1 FROM record_attachments a WHERE a.record_id = r.id AND a.kind IN ('odometer', 'document')) AS backed,
       count(*) OVER()::int AS total
     FROM service_records r
     JOIN vehicles v ON v.id = r.vehicle_id
     JOIN users u ON u.id = r.user_id
-    WHERE r.workshop_id = ${workshopId}
-      AND (${f.q} = '' OR v.plate ILIKE ${like} OR v.make ILIKE ${like} OR v.model ILIKE ${like} OR array_to_string(r.items, ' ') ILIKE ${like} OR u.name ILIKE ${like})
+    JOIN workshops w ON w.id = r.workshop_id
+    WHERE (${all} OR r.workshop_id = ${workshopId})
+      AND (${f.q} = '' OR v.plate ILIKE ${like} OR v.make ILIKE ${like} OR v.model ILIKE ${like} OR array_to_string(r.items, ' ') ILIKE ${like} OR u.name ILIKE ${like} OR w.name ILIKE ${like})
       AND (${f.type} = '' OR r.type::text = ${f.type})
       AND (${f.from}::date IS NULL OR r.performed_on >= ${f.from}::date)
       AND (${f.to}::date IS NULL OR r.performed_on <= ${f.to}::date)
@@ -222,18 +234,18 @@ export type WorkshopSummary = {
   users: number;
 };
 
-export async function workshopSummary(workshopId: string): Promise<WorkshopSummary> {
+export async function workshopSummary(workshopId: string, all = false): Promise<WorkshopSummary> {
   const [s] = await db()<(Omit<WorkshopSummary, "backedPct"> & { backed: number })[]>`
     SELECT
-      (SELECT count(*) FROM vehicles v WHERE v.created_by_workshop = ${workshopId}
+      (SELECT count(*) FROM vehicles v WHERE ${all} OR v.created_by_workshop = ${workshopId}
          OR EXISTS (SELECT 1 FROM service_records r WHERE r.vehicle_id = v.id AND r.workshop_id = ${workshopId}))::int AS vehicles,
-      (SELECT count(*) FROM service_records WHERE workshop_id = ${workshopId})::int AS records,
-      (SELECT count(*) FROM service_records WHERE workshop_id = ${workshopId} AND created_at >= date_trunc('month', now()))::int AS records_month,
-      (SELECT count(*) FROM service_records WHERE workshop_id = ${workshopId}
+      (SELECT count(*) FROM service_records WHERE ${all} OR workshop_id = ${workshopId})::int AS records,
+      (SELECT count(*) FROM service_records WHERE (${all} OR workshop_id = ${workshopId}) AND created_at >= date_trunc('month', now()))::int AS records_month,
+      (SELECT count(*) FROM service_records WHERE (${all} OR workshop_id = ${workshopId})
          AND created_at >= date_trunc('month', now()) - interval '1 month' AND created_at < date_trunc('month', now()))::int AS records_prev_month,
       (SELECT count(DISTINCT a.record_id) FROM record_attachments a JOIN service_records r ON r.id = a.record_id
-         WHERE r.workshop_id = ${workshopId} AND a.kind IN ('odometer', 'document'))::int AS backed,
-      (SELECT count(*) FROM users WHERE workshop_id = ${workshopId})::int AS users
+         WHERE (${all} OR r.workshop_id = ${workshopId}) AND a.kind IN ('odometer', 'document'))::int AS backed,
+      (SELECT count(*) FROM users WHERE ${all} OR workshop_id = ${workshopId})::int AS users
   `;
   return { ...s, backedPct: s.records ? Math.round((s.backed / s.records) * 100) : 0 };
 }

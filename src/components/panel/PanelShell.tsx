@@ -7,10 +7,12 @@ import { PanelNav } from "./PanelNav";
 /** Panel de computadora: barra lateral fija con navegación y contenido ancho. */
 export function PanelShell({ user, children }: { user: SessionUser; children?: React.ReactNode }) {
   const agency = user.workshopKind === "agencia";
+  const admin = isAdmin(user);
   const items = [
     { href: "/panel", label: "Resumen", icon: "home" },
-    { href: "/panel/vehiculos", label: agency ? "Mis autos" : "Vehículos", icon: "car" },
-    ...(agency ? [{ href: "/panel/informes", label: "Informes", icon: "doc" }] : [{ href: "/panel/registros", label: "Registros", icon: "list" }]),
+    { href: "/panel/vehiculos", label: admin ? "Vehículos" : agency ? "Mis autos" : "Vehículos", icon: "car" },
+    ...(!agency || admin ? [{ href: "/panel/registros", label: "Registros", icon: "list" }] : []),
+    ...(agency || admin ? [{ href: "/panel/informes", label: "Informes", icon: "doc" }] : []),
     { href: "/panel/plan", label: "Plan", icon: "card" },
     { href: "/panel/equipo", label: "Equipo", icon: "team" },
     { href: "/panel/datos", label: agency ? "Datos de la agencia" : "Datos del taller", icon: "pin" },

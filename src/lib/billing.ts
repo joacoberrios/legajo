@@ -4,7 +4,7 @@ import { db } from "./db";
 import { issueReport } from "./agency";
 import { findVehicleById, listRecords } from "./data";
 import { isActive, PLANS, PURCHASES, resolvePrices, type PlanKey, type Prices } from "./billing-plans";
-import type { SessionUser } from "./auth";
+import { isAdmin, type SessionUser } from "./auth";
 
 // ---------- Configuración ----------
 
@@ -62,7 +62,7 @@ export type Access = {
 /** Qué puede hacer la cuenta según la llave de cobro y su plan. */
 export async function accessFor(user: SessionUser): Promise<Access> {
   const settings = await getSettings();
-  if (!settings.enabled) return { paywall: false, sub: null, active: true, reportsLeft: Infinity };
+  if (!settings.enabled || isAdmin(user)) return { paywall: false, sub: null, active: true, reportsLeft: Infinity };
   const sub = await currentSubscription(user.workshopId);
   const active = isActive(sub);
   const left = active && sub ? Math.max(0, sub.reportsQuota - (await reportsUsed(user.workshopId, sub))) : 0;
