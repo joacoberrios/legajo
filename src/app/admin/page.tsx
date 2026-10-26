@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { setWorkshopVerified } from "@/app/actions/admin";
+import { deleteWorkshop, setWorkshopKind, setWorkshopVerified } from "@/app/actions/admin";
 import { ResetLinkButton } from "@/components/PasswordForms";
 import { requireAdmin } from "@/lib/auth";
 import { maskCuit } from "@/lib/cuit";
@@ -44,8 +44,9 @@ function ago(d: Date | null) {
   return `hace ${days} días`;
 }
 
-export default async function AdminPage() {
-  await requireAdmin();
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ eliminado?: string; error?: string; cuenta?: string }> }) {
+  const admin = await requireAdmin();
+  const { eliminado, error, cuenta } = await searchParams;
   const sql = db();
 
   const [totals] = await sql<Totals[]>`
@@ -95,6 +96,14 @@ export default async function AdminPage() {
         </div>
       </div>
 
+      {eliminado && <p role="status" className="rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900">Se eliminó «{eliminado}» con sus usuarios.</p>}
+      {error === "historial" && (
+        <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">
+          «{cuenta}» no se puede eliminar porque tiene registros firmados, informes verificados o tandas de stickers, y esos datos son inmutables. Podés quitarle la verificación para que no cargue más.
+        </p>
+      )}
+      {error === "propia" && <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">No podés eliminar tu propia cuenta desde el admin.</p>}
+
       <section className="space-y-3 rounded-3xl bg-ink p-5 text-paper">
         <div className="flex items-baseline justify-between">
           <h1 className="font-bold">Talleres activos esta semana</h1>
@@ -126,14 +135,14 @@ export default async function AdminPage() {
         {pending.length === 0 ? (
           <p className="text-sm text-muted">No hay talleres esperando.</p>
         ) : (
-          pending.map((w) => <WorkshopCard key={w.id} w={w} />)
+          pending.map((w) => <WorkshopCard key={w.id} w={w} own={w.id === admin.workshopId} />)
         )}
       </section>
 
       <section className="space-y-2.5">
         <h2 className="font-bold">Talleres verificados ({verified.length})</h2>
         {verified.map((w) => (
-          <WorkshopCard key={w.id} w={w} />
+          <WorkshopCard key={w.id} w={w} own={w.id === admin.workshopId} />
         ))}
       </section>
     </main>
@@ -149,7 +158,7 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-function WorkshopCard({ w }: { w: WorkshopRow }) {
+function WorkshopCard({ w, own }: { w: WorkshopRow; own: boolean }) {
   return (
     <article className="card space-y-2.5 px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -189,11 +198,37 @@ function WorkshopCard({ w }: { w: WorkshopRow }) {
           </button>
         ) : (
           <button type="submit" className="h-11 rounded-xl bg-ink px-4 text-sm font-semibold text-white">
-            Verificar taller
+            Verificar
           </button>
         )}
       </form>
       {w.ownerId && <ResetLinkButton userId={w.ownerId} name={(w.ownerName ?? "").split(" ")[0] || "dueño"} />}
+
+      <form action={setWorkshopKind} className="flex items-center gap-2">
+        <input type="hidden" name="workshopId" value={w.id} />
+        <label htmlFor={`kind-${w.id}`} className="text-xs font-semibold text-muted">Tipo</label>
+        <select id={`kind-${w.id}`} name="kind" defaultValue={w.kind} className="h-11 flex-1 rounded-xl border border-line bg-white px-3 text-sm">
+          <option value="taller">Taller</option>
+          <option value="agencia">Agencia</option>
+        </select>
+        <button type="submit" className="h-11 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold">Guardar</button>
+      </form>
+
+      {!own && (
+        <details className="rounded-xl border border-red-200 px-3.5 py-2.5">
+          <summary className="cursor-pointer text-sm font-semibold text-red-700">Eliminar cuenta</summary>
+          <div className="mt-2.5 space-y-2.5">
+            <p className="text-xs text-muted">
+              Borra la cuenta y sus {w.users} usuario{w.users === 1 ? "" : "s"}. No se puede deshacer.
+              {w.records > 0 && " Esta cuenta tiene registros firmados: no se va a poder eliminar."}
+            </p>
+            <form action={deleteWorkshop}>
+              <input type="hidden" name="workshopId" value={w.id} />
+              <button type="submit" className="h-11 w-full rounded-xl bg-red-700 text-sm font-semibold text-white">Sí, eliminar «{w.name}»</button>
+            </form>
+          </div>
+        </details>
+      )}
     </article>
   );
 }
