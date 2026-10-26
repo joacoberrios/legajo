@@ -35,10 +35,10 @@ export function LoginForm({ next }: { next?: string }) {
   );
 }
 
-export function RegisterForm() {
+export function RegisterForm({ defaultKind = "taller" }: { defaultKind?: "taller" | "agencia" }) {
   const [state, action, pending] = useActionState(register, undefined);
   const v = state?.values; // lo tipeado antes de un error
-  const [kind, setKind] = useState<"taller" | "agencia">(v?.kind ?? "taller");
+  const [kind, setKind] = useState<"taller" | "agencia">(v?.kind ?? defaultKind);
   const agency = kind === "agencia";
   return (
     <form action={action} className="space-y-4">

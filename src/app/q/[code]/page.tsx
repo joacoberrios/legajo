@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { assignStickerByPlate } from "@/app/actions/stickers";
 import { Plate } from "@/components/Plate";
 import { Wordmark } from "@/components/Wordmark";
+import { PitchActions, PitchIntro } from "@/components/Pitch";
 import { currentUser } from "@/lib/auth";
 import { findVehicleByPlate, recentVehicles } from "@/lib/data";
 import { isValidPlate, normalizePlate } from "@/lib/plate";
@@ -39,9 +40,11 @@ export default async function StickerPage({
 
   return (
     <main className="mx-auto max-w-md space-y-6 px-5 py-8">
-      <Link href={user ? "/taller" : "/"} aria-label="Legajo, inicio" className="inline-block text-ink">
-        <Wordmark height={22} />
-      </Link>
+      {(user || sticker.voidedAt) && (
+        <Link href={user ? "/taller" : "/"} aria-label="Legajo, inicio" className="inline-block text-ink">
+          <Wordmark height={22} />
+        </Link>
+      )}
 
       {sticker.voidedAt ? (
         <section className="space-y-2">
@@ -54,12 +57,18 @@ export default async function StickerPage({
           <p className="text-sm text-muted">El sticker <span className="font-mono">{pretty}</span> todavía no está vinculado a ningún auto. Lo asigna el taller que lo pega.</p>
         </section>
       ) : !user ? (
-        <section className="space-y-4">
-          <h1 className="text-2xl font-bold">Sticker sin activar</h1>
-          <p className="text-sm text-muted">
-            Este sticker <span className="font-mono">{pretty}</span> todavía no está asignado a ningún auto. Si sos del taller que lo pegó, ingresá para asignarlo.
-          </p>
-          <Link href={`/login?next=/q/${code}`} className="btn-primary">Ingresar y asignar</Link>
+        <section className="space-y-6">
+          <PitchIntro
+            headline="Este auto está por tener su Legajo."
+            sub="Este sticker todavía no está activado. Cuando el taller lo active, vas a ver acá el historial del auto: cada service, firmado por el taller que lo hizo."
+          />
+          <div className="card space-y-3 p-4">
+            <p className="text-sm">
+              ¿Sos del taller que pegó el sticker <span className="font-mono font-semibold">{pretty}</span>? Ingresá y asignalo.
+            </p>
+            <Link href={`/login?next=/q/${code}`} className="btn-primary">Ingresar y asignar</Link>
+          </div>
+          <PitchActions />
         </section>
       ) : (
         <section className="space-y-5">

@@ -1,27 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { currentUser } from "@/lib/auth";
+import { PitchActions, PitchIntro } from "@/components/Pitch";
+import { currentUser, homeFor } from "@/lib/auth";
 
 export default async function Home() {
-  if (await currentUser()) redirect("/taller");
+  const user = await currentUser();
+  if (user) redirect(homeFor(user));
 
   return (
-    <main className="flex min-h-dvh flex-col justify-between px-5 py-10">
-      <div className="text-2xl font-extrabold tracking-tight">Legajo</div>
-      <div className="space-y-4">
-        <h1 className="text-4xl leading-tight font-extrabold tracking-tight">Que el auto hable por sí solo.</h1>
-        <p className="text-muted">
-          Los talleres cargan cada trabajo y queda firmado para siempre. Quien compra un usado ve el historial real.
-        </p>
-      </div>
-      <div className="space-y-3">
-        <Link href="/registro" className="btn-primary">
-          Crear cuenta: taller o agencia
-        </Link>
-        <Link href="/login" className="btn-secondary">
-          Ya tengo cuenta
-        </Link>
-      </div>
+    <main className="space-y-6 px-5 py-6">
+      <PitchIntro
+        headline="Que el auto hable por sí solo."
+        sub="El historial de cada auto, cargado por los talleres que lo atienden y firmado para siempre. Quien compra un usado ve lo que realmente le hicieron."
+      />
+      <PitchActions />
+      <Link href="/login" className="btn-secondary">Ya tengo cuenta</Link>
     </main>
   );
 }
