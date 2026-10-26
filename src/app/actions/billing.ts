@@ -29,7 +29,7 @@ const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 /** Vuelta a una pantalla del admin (solo rutas internas /admin/...). */
 const adminBack = (f: FormData) => {
   const b = text(f, "back");
-  return /^\/admin(\/[\w-]+)*$/.test(b) ? b : "/admin/cobros";
+  return /^(\/panel)?\/admin(\/[\w-]+)*$/.test(b) ? b : "/admin/cobros";
 };
 
 // ---------- Particulares ----------
@@ -138,8 +138,9 @@ export async function saveBillingAction(form: FormData) {
   const raw: Record<string, number> = {};
   for (const k of Object.keys(DEFAULT_PRICES) as PriceKey[]) raw[k] = Number(text(form, k).replace(/\D/g, ""));
   await saveSettings(enabled, resolvePrices(raw));
-  revalidatePath("/admin/cobros");
-  redirect("/admin/cobros?guardado=1");
+  const back = adminBack(form);
+  revalidatePath(back);
+  redirect(`${back}?tab=precios&guardado=1`);
 }
 
 export async function grantCourtesyAction(form: FormData) {

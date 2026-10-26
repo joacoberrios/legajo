@@ -4,6 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ICONS: Record<string, React.ReactNode> = {
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5" />
+    </>
+  ),
+  money: (
+    <>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 9.5v5M18 9.5v5" />
+    </>
+  ),
   home: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
   car: (
     <>
@@ -39,15 +52,18 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-export function PanelNav({ items }: { items: { href: string; label: string; icon: string }[] }) {
+export function PanelNav({ items }: { items: { href: string; label: string; icon: string; section?: string }[] }) {
   const path = usePathname();
   return (
     <nav aria-label="Panel" className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible lg:pb-0">
       {items.map((i) => {
         const active = i.href === "/panel" ? path === "/panel" : path.startsWith(i.href);
         return (
+          <div key={i.href} className="contents">
+          {i.section && (
+            <p className="hidden px-3 pt-5 pb-1 text-[11px] font-semibold tracking-wide text-[#6B6A64] uppercase lg:block">{i.section}</p>
+          )}
           <Link
-            key={i.href}
             href={i.href}
             aria-current={active ? "page" : undefined}
             className={`flex h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-sm font-medium ${active ? "bg-[#2A2D32] text-white" : "text-[#C9C7BF] hover:bg-[#1E2125] hover:text-white"}`}
@@ -57,6 +73,7 @@ export function PanelNav({ items }: { items: { href: string; label: string; icon
             </svg>
             {i.label}
           </Link>
+          </div>
         );
       })}
     </nav>

@@ -16,7 +16,13 @@ export function PanelShell({ user, children }: { user: SessionUser; children?: R
     { href: "/panel/plan", label: "Plan", icon: "card" },
     { href: "/panel/equipo", label: "Equipo", icon: "team" },
     { href: "/panel/datos", label: agency ? "Datos de la agencia" : "Datos del taller", icon: "pin" },
-  ] as const;
+    ...(admin
+      ? [
+          { href: "/panel/admin/cuentas", label: "Cuentas", icon: "users", section: "Admin de Legajo" },
+          { href: "/panel/admin/cobros", label: "Cobros", icon: "money" },
+        ]
+      : []),
+  ];
 
   return (
     <div data-wide className="min-h-dvh bg-[#F7F6F3] lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
